@@ -7,7 +7,7 @@ Kernel, initrd, and kernel command line to create a single UEFI application
 that can be booted directly from UEFI or from the UEFI shim bootloader when
 running on a UEFI Secure Boot system.
 
-The initial version of stubby was extracted from systemd unser the LGPL v2.1+
+The initial version of stubby was extracted from systemd under the LGPL v2.1+
 license.  The systemd source repository can be found at URL below.
 
 * https://github.com/systemd/systemd
