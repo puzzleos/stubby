@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 #
 # stubby smash script
@@ -23,30 +23,43 @@
 
 STUBBY="stubby.efi"
 
-function usage() {
+usage() {
 	echo "usage: stubby-smash <kernel> <initrd> <cmdline> <output>"
 	echo ""
 	echo "  Combine the <kernel>, <initrd>, and <cmdline> files into a"
 	echo "  single bootable EFI application in <output>."
 	echo ""
+}
+
+error() {
+	echo "error:" "$@" 1>&2
 	exit 1
 }
 
-function error() {
-	echo "error: $@"
-	exit 1
-}
-
-function deps() {
-	[[ -z $@ ]] && return
-	for i in $@; do
-		which $i >& /dev/null || \
-			error "please ensure \"$i\" is installed"
+deps() {
+	while [ $# -ne 0 ]; do
+		command -v "$1" >/dev/null 2>&1 ||
+			error "please ensure \"$1\" is installed"
+		shift
 	done
+}
+
+assert_file() {
+	[ -f "$1" ] || error "$2 '$1' is not a file"
+	[ -r "$1" ] || error "$2 '$1' file is not readable"
 }
 
 # main
 #
+
+if [ "$1" = "-h" -o "$1" = "--help" ]; then
+	usage
+	exit 0
+fi
+if [ $# -ne 4 ]; then
+	usage 1>&2;
+	error "got $# arguments expected 4"
+fi
 
 arg_kernel=$1
 arg_initrd=$2
@@ -57,17 +70,20 @@ arg_output=$4
 deps objcopy
 
 # sanity checks
-[[ ! -r $STUBBY ]] && error "unable to find \"$STUBBY\" in current directory"
-[[ ! -r $arg_kernel || ! -r $arg_initrd || ! -r $arg_cmdline ]] && usage
+assert_file "$STUBBY" "stubby efi file"
+assert_file "$arg_kernel" "kernel argument"
+assert_file "$arg_initrd" "initrd argument"
+assert_file "$arg_cmdline" "cmdline argument"
 
 # output check
-[[ -x $arg_output ]] && error "output file \"$arg_output\" already exists"
+[ ! -e "$arg_output" ] ||
+	error "output file '$arg_output' already exists"
 
 exec objcopy \
-        --add-section .cmdline=$arg_cmdline \
-                --change-section-vma .cmdline=0x30000  \
-        --add-section .linux=$arg_kernel \
-                --change-section-vma .linux=0x2000000 \
-        --add-section .initrd=$arg_initrd \
-                --change-section-vma .initrd=0x3000000 \
-        $STUBBY $arg_output
+	"--add-section=.cmdline=$arg_cmdline" \
+		"--change-section-vma=.cmdline=0x30000" \
+	"--add-section=.linux=$arg_kernel" \
+		"--change-section-vma=.linux=0x2000000" \
+	"--add-section=.initrd=$arg_initrd" \
+		"--change-section-vma=.initrd=0x3000000" \
+	"$STUBBY" "$arg_output"
