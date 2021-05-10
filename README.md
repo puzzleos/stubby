@@ -46,11 +46,12 @@ Linux Kernel, initrd, and command line using the included script as shown
 below:
 
 ```
-% ./stubby-smash.1.sh
-usage: stubby-smash <kernel> <initrd> <cmdline> <output>
+% ./stubby-smash.2.sh  -h
+usage: stubby-smash.2.sh -o <output>
+         -k <kernel> -i <initrd> -c <cmdline> -s <SBAT>
 
-  Combine the <kernel>, <initrd>, and <cmdline> files into a
-  single bootable EFI application in <output>.
+  Combine the <kernel>, <initrd>, <cmdline>, and <SBAT> files
+  into a single bootable EFI app in <output>.
 ```
 
 The resulting output artifact is suitable for booting directly from UEFI and
