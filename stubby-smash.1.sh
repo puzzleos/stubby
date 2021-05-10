@@ -11,12 +11,12 @@
 # modify it under the terms of the GNU Lesser General Public
 # License as published by the Free Software Foundation; either
 # version 2.1 of the License, or (at your option) any later version.
-# 
+#
 # This library is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # Lesser General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
@@ -24,7 +24,7 @@
 STUBBY="stubby.efi"
 
 usage() {
-	echo "usage: stubby-smash <kernel> <initrd> <cmdline> <output>"
+	echo "usage: stubby-smash.1.sh <kernel> <initrd> <cmdline> <output>"
 	echo ""
 	echo "  Combine the <kernel>, <initrd>, and <cmdline> files into a"
 	echo "  single bootable EFI application in <output>."

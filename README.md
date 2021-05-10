@@ -41,11 +41,12 @@ objcopy -j .text -j .sdata -j .data -j .dynamic \
 -rwxr-xr-x 1 user users 56K Oct 30 13:48 stubby.efi*
 ```
 
-Once you have successfully built "stubby.efi" you can combine it with your
-Linux Kernel, initrd, and command line using the `stubby-smash` script.
+Once you have successfully built `stubby.efi` you can combine it with your
+Linux Kernel, initrd, and command line using the included script as shown
+below:
 
 ```
-% ./stubby-smash 
+% ./stubby-smash.1.sh
 usage: stubby-smash <kernel> <initrd> <cmdline> <output>
 
   Combine the <kernel>, <initrd>, and <cmdline> files into a
