@@ -12,6 +12,20 @@ license.  The systemd source repository can be found at URL below.
 
 * https://github.com/systemd/systemd
 
+## Stubby Releases and Code Branches
+
+The "main" branch is for stubby development and there are no guarantees
+regarding interface and/or application stability.  The "stable-X" branches
+provide a interface stability promise within the branch; release tags will be
+created within the stable branches for users that wish to target a specific
+release.
+
+The "stable-1" branch and all v1.y.z tags are for EFI binaries without a SBAT
+section.
+
+The "stable-2" branch and all v2.y.z tags are for EFI binaries with a SBAT
+section.
+
 ## Building and Using Stubby
 
 As stubby is intentionally a small and simple tool it has a very limited number
