@@ -17,6 +17,7 @@ typically request at most a 90 day time period to address the issue before it
 is made public, but we will make every effort to address the issue as quickly
 as possible and shorten the disclosure window.
 
+* Serge Hallyn, serge@hallyn.com
 * Paul Moore, paul@paul-moore.com
 
 ### Resolving Sensitive Security Issues
