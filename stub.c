@@ -37,6 +37,20 @@
 static const char __attribute__((used)) magic[] =
 	"#### LoaderInfo: stubby " GIT_VERSION " ####";
 
+BOOLEAN use_shell_cmdline(UINTN len)
+{
+	EFI_STATUS err;
+	UINTN i;
+
+	// If cmdline file is missing then use the shell's
+	if (len == 0)
+		return TRUE;
+
+	// Otherwise require StubbyIgnoreCmdlineSection UEFI var to be 1
+	err = efivar_get_int(L"StubbyIgnoreCmdlineSection", &i);
+	return err == EFI_SUCCESS && i == 1;
+}
+
 static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
@@ -93,6 +107,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	 * custom command line and replace the built-in one */
 	if ((!secure || cmdline_len == 0) &&
 	    loaded_image->LoadOptionsSize > 0 &&
+	    use_shell_cmdline(cmdline_len) &&
 	    *(CHAR16 *)loaded_image->LoadOptions > 0x1F) {
 		CHAR16 *options;
 		CHAR8 *line;
