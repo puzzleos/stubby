@@ -1,6 +1,5 @@
 The Stubby UEFI Bootloader
 ===============================================================================
-Contact: pmoore2@cisco.com or paul@paul-moore.com
 
 The stubby bootloader is a simple UEFI stub that can be combined with a Linux
 Kernel, initrd, and kernel command line to create a single UEFI application
