@@ -37,6 +37,10 @@
 static const char __attribute__((used)) magic[] =
 	"#### LoaderInfo: stubby " GIT_VERSION " ####";
 
+static const char __attribute__((__used__)) __attribute__((__section__ (".sbat"))) __attribute__((__aligned__ (512))) sbat[] =
+	"sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md\n"
+	"kernel,1,SBAT atomix kernel,atomix,1,NOURL\n";
+
 BOOLEAN use_shell_cmdline(UINTN len)
 {
 	EFI_STATUS err;
