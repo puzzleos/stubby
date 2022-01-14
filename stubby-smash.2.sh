@@ -25,9 +25,9 @@ STUBBY="stubby.efi"
 
 usage() {
 	echo "usage: stubby-smash.2.sh -o <output>"
-	echo "         -k <kernel> -i <initrd> -c <cmdline>"
+	echo "         -k <kernel> -i <initrd> -c <cmdline> -s <SBAT>"
 	echo ""
-	echo "  Combine the <kernel>, <initrd>, and <cmdline> files"
+	echo "  Combine the <kernel>, <initrd>, <cmdline> and <SBAT> files"
 	echo "  into a single bootable EFI app in <output>."
 	echo ""
 	exit 1
@@ -61,6 +61,7 @@ deps objcopy
 arg_kernel=""
 arg_initrd=""
 arg_cmdline=""
+arg_sbat=""
 arg_output=""
 while getopts ":o:k:i:c:s:" opt; do
 	case $opt in
@@ -76,6 +77,9 @@ while getopts ":o:k:i:c:s:" opt; do
 	c)
 		arg_cmdline=$OPTARG
 		;;
+	s)
+		arg_sbat=$OPTARG
+		;;
 	*)
 		usage
 	;;
@@ -88,6 +92,7 @@ assert_file "$STUBBY" "stubby efi file"
 assert_file "$arg_kernel" "kernel argument"
 assert_file "$arg_initrd" "initrd argument"
 assert_file "$arg_cmdline" "cmdline argument"
+assert_file "$arg_sbat" "sbat argument"
 
 # output check
 [ ! -e "$arg_output" ] ||
@@ -96,8 +101,11 @@ assert_file "$arg_cmdline" "cmdline argument"
 exec objcopy \
 	"--add-section=.cmdline=$arg_cmdline" \
 		"--change-section-vma=.cmdline=0x30000" \
+	"--add-section=.sbat=$arg_sbat" \
+		"--change-section-vma=.sbat=0x50000" \
+		"--set-section-alignment=.sbat=512" \
 	"--add-section=.linux=$arg_kernel" \
-		"--change-section-vma=.linux=0x2000000" \
+		"--change-section-vma=.linux=0x1000000" \
 	"--add-section=.initrd=$arg_initrd" \
 		"--change-section-vma=.initrd=0x3000000" \
 	"$STUBBY" "$arg_output"
