@@ -27,6 +27,7 @@ STUBBY_OBJS = \
 	pe.o \
 	linux.o \
 	stub.o \
+	kcmdline.o \
 
 .PHONY: all
 all: build
