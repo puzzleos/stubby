@@ -1,0 +1,18 @@
+name: build
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Install Deps
+        run: |
+          sudo apt-get update --quiet
+          sudo apt-get install --quiet --assume-yes --no-install-recommends gnu-efi build-essential
+      - name: Build
+        run: |
+          make build
