@@ -48,12 +48,14 @@ EFI_STATUS check_cmdline(CONST CHAR8 *cmdline, UINTN cmdline_len) {
 	CHAR8 c = '\0';
 	CHAR8 *buf = NULL;
 	CHAR8 *tokens[MAX_TOKENS];
+	EFI_STATUS status = EFI_SUCCESS;
 	int i;
 	int start = -1;
 	int num_toks = 0;
 	buf = AllocatePool(cmdline_len);
-	if (!buf)
+	if (!buf) {
 		return EFI_OUT_OF_RESOURCES;
+	}
 
 	CopyMem(buf, cmdline, cmdline_len);
 
@@ -62,11 +64,13 @@ EFI_STATUS check_cmdline(CONST CHAR8 *cmdline, UINTN cmdline_len) {
 		c = buf[i];
 		if (c < 0x20 || c > 0x7e) {
 			Print(L"Bad character 0x%02hhx.", buf);
-			return EFI_SECURITY_VIOLATION;
+			status = EFI_SECURITY_VIOLATION;
+			goto out;
 		}
 		if (i >= MAX_TOKENS) {
 			Print(L"Too many tokens in cmdline.");
-			return EFI_SECURITY_VIOLATION;
+			status = EFI_SECURITY_VIOLATION;
+			goto out;
 		}
 
 		if (c == ' ') {
@@ -95,5 +99,8 @@ EFI_STATUS check_cmdline(CONST CHAR8 *cmdline, UINTN cmdline_len) {
 		}
 	}
 
-	return EFI_SUCCESS;
+out:
+
+	FreePool(buf);
+	return status;
 }

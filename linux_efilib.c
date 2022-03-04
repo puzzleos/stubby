@@ -27,6 +27,10 @@ VOID * AllocatePool(UINTN Size) {
 	return malloc(Size);
 }
 
+VOID FreePool (IN VOID *p) {
+	return free(p);
+}
+
 UINTN strncmpa(IN CONST CHAR8 *s1, IN CONST CHAR8 *s2, IN UINTN len) {
 	return strncmp((char*)s1, (char*)s2, len);
 }
