@@ -52,12 +52,14 @@ EFI_STATUS check_cmdline(CONST CHAR8 *cmdline, UINTN cmdline_len) {
 	int i;
 	int start = -1;
 	int num_toks = 0;
-	buf = AllocatePool(cmdline_len);
+	buf = AllocatePool(cmdline_len + 1);
 	if (!buf) {
 		return EFI_OUT_OF_RESOURCES;
 	}
 
 	CopyMem(buf, cmdline, cmdline_len);
+	// make sure it is null terminated.
+	buf[cmdline_len] = '\0';
 
 	// walk buf, populating tokens
 	for (i = 0; i < cmdline_len; i++) {
