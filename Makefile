@@ -27,12 +27,13 @@ STUBBY_OBJS = \
 	pe.o \
 	linux.o \
 	stub.o \
+	kcmdline.o \
 
 .PHONY: all
-all: build
+all: build test
 
 .PHONY: build
-build: stubby.efi
+build: stubby.efi test-cmdline
 
 stubby.so: ${STUBBY_OBJS}
 	${LD} ${LDFLAGS} $^ -o $@ -lefi -lgnuefi
@@ -41,6 +42,18 @@ stubby.so: ${STUBBY_OBJS}
 	objcopy -j .text -j .sdata -j .data -j .dynamic \
 		-j .dynsym  -j .rel -j .rela -j .reloc \
 		--target=efi-app-${ARCH} $^ $@
+
+
+.PHONY: test
+test: test-cmdline
+	./test-cmdline
+
+LINUX_TEST_CFLAGS := -DLINUX_TEST $(filter-out -fshort-wchar,$(CFLAGS))
+%-lt.o: %.c
+	$(CC) $(LINUX_TEST_CFLAGS) -c -o $@ $^
+
+test-cmdline: linux_efilib-lt.o kcmdline-lt.o test-cmdline-lt.o
+	$(CC) $(LINUX_TEST_CFLAGS) -o $@ $^
 
 .PHONY: clean
 clean:

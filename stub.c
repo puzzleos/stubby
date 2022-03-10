@@ -29,6 +29,7 @@
 #include <efilib.h>
 
 #include "disk.h"
+#include "kcmdline.h"
 #include "linux.h"
 #include "pe.h"
 #include "util.h"
@@ -120,6 +121,16 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		for (i = 0; i < cmdline_len; i++)
 			line[i] = options[i];
 		cmdline = line;
+
+		err = check_cmdline(cmdline, cmdline_len);
+		if (EFI_ERROR(err)) {
+			if (secure) {
+				Print(L"Custom kernel command line rejected");
+				return err;
+			} else {
+				Print(L"Custom kernel would be rejected in secure mode");
+			}
+		}
 	}
 
 	/* export the device path we are started from, if it's not set yet */
