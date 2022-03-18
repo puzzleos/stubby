@@ -60,6 +60,10 @@ test-%: test-%-lt.o $(TEST_OBJS)
 	$(CC) $(LINUX_TEST_CFLAGS) -o $@ $^
 
 .PHONY: clean
+tarball:
+	./tools/make-tarball
+
+.PHONY: clean
 clean:
 	${RM} -rf *.efi *.so *.o $(TEST_EXES)
 

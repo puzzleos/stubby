@@ -1,0 +1,71 @@
+#!/bin/sh
+# shellcheck disable=2015,2039,2162
+
+stderr() { echo "$@" 1>&2; }
+fail() { [ $# -eq 0 ] || stderr "$@"; exit 1; }
+
+Usage() {
+    cat <<EOF
+Usage: ${0##*/} [revision]
+  create a tarball of revision (default HEAD)
+
+  options:
+    -h | --help             print usage
+         --long             Use git describe --long for versioning
+    -o | --output FILE      write to file
+         --version VERSION  Set the version used in the tarball. Default
+                            value is determined with 'git describe'.
+EOF
+}
+
+sopts="ho:"
+lopts="help,output:,version:,long"
+out=$(getopt --name "${0##*/}" \
+    --options "$sopts" --long "$lopts" -- "$@") &&
+    eval set -- "$out" || { Usage 1>&2; exit 1; }
+
+long_opt=""
+version=""
+while [ $# -ne 0 ]; do
+    cur=$1; next=$2
+    case "$cur" in
+        -h|--help) Usage; exit 0;;
+        -o|--output) output=$next; shift;;
+           --version) version=$next; shift;;
+           --long) long_opt="--long";;
+        --) shift; break;;
+    esac
+    shift;
+done
+
+rev=${1:-HEAD}
+if [ -z "$version" ]; then
+    version=$(git describe --abbrev=8 "--match=v[0-9]*" \
+        ${long_opt:+"${long_opt}"} "$rev") ||
+        fail "failed to read version"
+elif [ -n "$long_opt" ]; then
+    fail "--long conflicts with --version"
+fi
+
+# tags are vX.Y.Z format, chop off the 'v'
+version=${version#v}
+archive_base="stubby-$version"
+if [ -z "$output" ]; then
+    output="$archive_base.tar.gz"
+fi
+
+# when building an archiving from HEAD, ensure that there aren't any
+# uncomitted changes in the working directory (because these would not
+# end up in the archive).
+if [ "$rev" = HEAD ] && ! git diff-index --quiet HEAD --; then
+    if [ -z "$SKIP_UNCOMITTED_CHANGES_CHECK" ]; then
+        fail "There are uncommitted changes in working directory."
+    else
+        stderr "WARNING: There are uncommitted changes in working directory."
+        stderr "         This changes will not be included in the archive."
+    fi
+fi
+
+git archive --format=tgz "--output=$output" "--prefix=$archive_base/" "$rev" ||
+    fail "git archive failed"
+echo "$output"
