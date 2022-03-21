@@ -95,6 +95,7 @@ assert_file "$arg_cmdline" "cmdline argument"
 assert_file "$arg_sbat" "sbat argument"
 
 # output check
+[ -n "$arg_output" ] || error "Must provide output option (-o FILE.efi)"
 [ ! -e "$arg_output" ] ||
 	error "output file '$arg_output' already exists"
 
