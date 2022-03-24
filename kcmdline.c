@@ -65,12 +65,12 @@ EFI_STATUS check_cmdline(CONST CHAR8 *cmdline, UINTN cmdline_len) {
 	for (i = 0; i < cmdline_len; i++) {
 		c = buf[i];
 		if (c < 0x20 || c > 0x7e) {
-			Print(L"Bad character 0x%02hhx.", buf);
+			Print(L"Bad character 0x%02hhx.\n", buf);
 			status = EFI_SECURITY_VIOLATION;
 			goto out;
 		}
 		if (i >= MAX_TOKENS) {
-			Print(L"Too many tokens in cmdline.");
+			Print(L"Too many tokens in cmdline.\n");
 			status = EFI_SECURITY_VIOLATION;
 			goto out;
 		}
@@ -96,7 +96,7 @@ EFI_STATUS check_cmdline(CONST CHAR8 *cmdline, UINTN cmdline_len) {
 
 	for (i=0; i < num_toks; i++) {
 		if (!is_allowed(tokens[i])) {
-			Print(L"token not allowed: %s", tokens[i]);
+			Print(L"token not allowed: %s\n", tokens[i]);
 			return EFI_SECURITY_VIOLATION;
 		}
 	}

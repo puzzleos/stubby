@@ -405,7 +405,7 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off,
 
 EFI_STATUS log_oom(void)
 {
-	Print(L"Out of memory.");
+	Print(L"Out of memory.\n");
 	(void) uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 	return EFI_OUT_OF_RESOURCES;
 }
