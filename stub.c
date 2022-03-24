@@ -81,7 +81,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 				(VOID **)&loaded_image,
 				image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
 	if (EFI_ERROR(err)) {
-		Print(L"Error getting a LoadedImageProtocol handle: %r ", err);
+		Print(L"Error getting a LoadedImageProtocol handle: %r\n", err);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 		return err;
 	}
@@ -94,7 +94,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	err = pe_memory_locate_sections(loaded_image->ImageBase,
 					sections, addrs, offs, szs);
 	if (EFI_ERROR(err)) {
-		Print(L"Unable to locate embedded .linux section: %r ", err);
+		Print(L"Unable to locate embedded .linux section: %r\n", err);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 		return err;
 	}
@@ -125,10 +125,10 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		err = check_cmdline(cmdline, cmdline_len);
 		if (EFI_ERROR(err)) {
 			if (secure) {
-				Print(L"Custom kernel command line rejected");
+				Print(L"Custom kernel command line rejected\n");
 				return err;
 			} else {
-				Print(L"Custom kernel would be rejected in secure mode");
+				Print(L"Custom kernel would be rejected in secure mode\n");
 			}
 		}
 	}
@@ -155,7 +155,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 			   NULL) != EFI_SUCCESS) {
 		_cleanup_freepool_ CHAR16 *s;
 
-		s = PoolPrint(L"%s %d.%02d",
+		s = PoolPrint(L"%s %d.%02d\n",
 			      ST->FirmwareVendor,
 			      ST->FirmwareRevision >> 16,
 			      ST->FirmwareRevision & 0xffff);
@@ -167,7 +167,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 			   NULL) != EFI_SUCCESS) {
 		_cleanup_freepool_ CHAR16 *s;
 
-		s = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16,
+		s = PoolPrint(L"UEFI %d.%02d\n", ST->Hdr.Revision >> 16,
 			      ST->Hdr.Revision & 0xffff);
 		efivar_set(L"LoaderFirmwareType", s, FALSE);
 	}

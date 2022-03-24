@@ -15,7 +15,6 @@ UINTN Print(IN CONST wchar_t *fmt, ...) {
 	va_start(args, fmt);
 	x = vwprintf(fmt, args);
 	va_end(args);
-	wprintf(L"\n");
 	return x;
 }
 
