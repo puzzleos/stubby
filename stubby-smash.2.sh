@@ -22,6 +22,7 @@
 #
 
 STUBBY="stubby.efi"
+TEMP_D=""
 
 usage() {
 	echo "usage: stubby-smash.2.sh -o <output>"
@@ -31,6 +32,12 @@ usage() {
 	echo "  into a single bootable EFI app in <output>."
 	echo ""
 	exit 1
+}
+
+cleanup() {
+    if [ -d "${TEMP_D}" ]; then
+        rm -Rf "${TEMP_D}"
+    fi
 }
 
 error() {
@@ -99,8 +106,27 @@ assert_file "$arg_sbat" "sbat argument"
 [ ! -e "$arg_output" ] ||
 	error "output file '$arg_output' already exists"
 
+TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
+    error "failed to make a temp dir"
+trap cleanup EXIT
+
+# adjust cmdline to not include trailing newline
+cmdline="${TEMP_D}/cmdline"
+lines=$(wc -l < "$arg_cmdline")
+if [ "$lines" -eq 0 ]; then
+    # zero lines is "no trailing newline"
+    cmdline="$arg_cmdline"
+elif [ "$lines" -eq 1 ]; then
+    # one line.. just a trailing newline, strip it.
+    tr -d '\n' < "$arg_cmdline" > "$cmdline" ||
+        error "Failed to remove newline from $arg_cmdline"
+else
+    error "$arg_cmdline had $lines lines. Expected 0 or 1."
+fi
+
+
 exec objcopy \
-	"--add-section=.cmdline=$arg_cmdline" \
+	"--add-section=.cmdline=$cmdline" \
 		"--change-section-vma=.cmdline=0x30000" \
 	"--add-section=.sbat=$arg_sbat" \
 		"--change-section-vma=.sbat=0x50000" \
