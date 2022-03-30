@@ -10,11 +10,38 @@
 #include <wchar.h>
 
 UINTN Print(IN CONST wchar_t *fmt, ...) {
+	// efilib's 'Print' has '%s' or '%ls' for wide and '%a' for ascii.
+	// libc needs '%ls' for wide and '%s' for ascii.
+	// callers must use '%a' and '%ls'; we replace '%a' with '%s'.
+	if (wcsstr(fmt, L"%s") != NULL) {
+		wprintf(L"ERROR: cannot use '%%s' in fmt string: %ls\n", fmt);
+		exit(1);
+	}
+
+	wchar_t last = L'\0';
+	size_t fmtlen = wcslen(fmt);
+	wchar_t *fixedfmt = malloc((fmtlen*sizeof(wchar_t))+sizeof(wchar_t));
+	if (fixedfmt == NULL) {
+		wprintf(L"Failed malloc\n");
+		exit(1);
+	}
+
+	fixedfmt[fmtlen] = L'\0';
+	for (int i=0; i < fmtlen; i++) {
+		fixedfmt[i] = fmt[i];
+		if (last == L'%' && fmt[i] == L'a') {
+			fixedfmt[i] = L's';
+		}
+		last = fmt[i];
+	}
+
 	int x;
 	va_list args;
 	va_start(args, fmt);
-	x = vwprintf(fmt, args);
+	x = vwprintf(fixedfmt, args);
 	va_end(args);
+
+	free(fixedfmt);
 	return x;
 }
 
