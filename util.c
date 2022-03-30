@@ -358,6 +358,20 @@ CHAR8 *strchra(CHAR8 *s, CHAR8 c)
 	return NULL;
 }
 
+UINTN find_arg1_offset(const CHAR8 *opts, UINTN len) {
+	int i = 0;
+	for (i=0; i < len; i++) {
+		if (opts[i] == ' ') {
+			i++;
+			break;
+		}
+		if (opts[i] == '\0') {
+			return i;
+		}
+	}
+	return i;
+}
+
 EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off,
 		     UINTN size, CHAR8 **ret, UINTN *ret_size)
 {

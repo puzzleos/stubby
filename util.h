@@ -66,6 +66,8 @@ CHAR8 *strchra(CHAR8 *s, CHAR8 c);
 CHAR16 *stra_to_path(CHAR8 *stra);
 CHAR16 *stra_to_str(CHAR8 *stra);
 
+UINTN find_arg1_offset(const CHAR8 *opts, UINTN len);
+
 EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off,
 		     UINTN size, CHAR8 **content, UINTN *content_size);
 

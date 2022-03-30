@@ -112,7 +112,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	    *(CHAR16 *)loaded_image->LoadOptions > 0x1F) {
 		CHAR16 *options;
 		CHAR8 *line;
-		UINTN i;
+		UINTN i, arg1pos;
 
 		options = (CHAR16 *)loaded_image->LoadOptions;
 		cmdline_len = (loaded_image->LoadOptionsSize /
@@ -120,9 +120,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		line = AllocatePool(cmdline_len);
 		for (i = 0; i < cmdline_len; i++)
 			line[i] = options[i];
-		cmdline = line;
 
-		err = check_cmdline(cmdline, cmdline_len);
+		// skip arg0 (executable name)
+		arg1pos = find_arg1_offset(line, cmdline_len);
+		cmdline = &line[arg1pos];
+		cmdline_len = cmdline_len - arg1pos;
+
+		// LoadOptionsSize includes terminating null
+		err = check_cmdline(cmdline, cmdline_len-1);
 		if (EFI_ERROR(err)) {
 			if (secure) {
 				Print(L"Custom kernel command line rejected\n");

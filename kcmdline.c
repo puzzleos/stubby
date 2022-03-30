@@ -44,6 +44,7 @@ BOOLEAN is_allowed(const CHAR8 *input) {
 
 // check cmdline to make sure it contains only allowed words.
 // return EFI_SUCCESS on safe, EFI_SECURITY_VIOLATION on unsafe;
+// cmdline_len does not include terminating null.
 EFI_STATUS check_cmdline(CONST CHAR8 *cmdline, UINTN cmdline_len) {
 	CHAR8 c = '\0';
 	CHAR8 *buf = NULL;
@@ -59,7 +60,7 @@ EFI_STATUS check_cmdline(CONST CHAR8 *cmdline, UINTN cmdline_len) {
 
 	CopyMem(buf, cmdline, cmdline_len);
 	// make sure it is null terminated.
-	buf[cmdline_len] = '\0';
+	buf[cmdline_len+1] = '\0';
 
 	// walk buf, populating tokens
 	for (i = 0; i < cmdline_len; i++) {
