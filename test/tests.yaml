@@ -1,0 +1,57 @@
+# tests look like:
+#   name: (string) a-unique-name
+#   sb: (bool) run secure-boot ? default is based on name starting with sb-
+#   shim: (bool) use shim ? default based on "sb-shim" or "ib-shim" in name.
+#   runtime: (string) command line arguments to pass to kernel.efi
+#   builtin: (string) the kernel command line to build in.
+#   expected: (string) the expected kernel command line.
+#   assert: (list) list of assertions
+#     - booted-runtime-cli: the kernel booted and had the provided 'runtime'.
+#     - booted-expected-cli: the kernel booted and had the provided 'expected'.
+#     - denied-boot: stubby refused to boot kernel.
+#     - warned-cmdline: stubby warned that secureboot would not allow.
+tests:
+  - name: "sb-shim-allowed"
+    runtime: "root=atomix console=ttyS0"
+    assert:
+      - booted-runtime-cli
+
+  - name: "sb-noshim-allowed"
+    runtime: "root=atomix console=ttyS0"
+    assert:
+      - booted-runtime-cli
+
+  - name: "ib-shim-allowed"
+    runtime: "root=atomix console=ttyS0"
+    assert:
+      - booted-runtime-cli
+
+  - name: "ib-noshim-allowed"
+    runtime: "root=atomix console=ttyS0"
+    assert:
+      - booted-runtime-cli
+
+  - name: "sb-shim-denied"
+    runtime: "root=atomix console=ttyS0 rootkit=yes"
+    assert:
+      - denied-boot
+
+  - name: "ib-shim-denied"
+    runtime: "root=atomix console=ttyS0 rootkit=yes"
+    assert:
+      - warned-cmdline
+      - booted-runtime-cli
+
+  - name: "sb-shim-marker1-allowed"
+    builtin: "root=atomix STUBBY_RT_CLI1 console=ttyS0"
+    runtime: "ro verbose console=tty0"
+    expected: "root=atomix ro verbose console=tty0 console=ttyS0"
+    assert:
+      - booted-expected-cli
+
+  - name: "sb-noshim-marker1-allowed"
+    builtin: "root=atomix STUBBY_RT_CLI1 console=ttyS0"
+    runtime: "ro verbose console=tty0"
+    expected: "root=atomix ro verbose console=tty0 console=ttyS0"
+    assert:
+      - booted-expected-cli

@@ -1,0 +1,142 @@
+#!/bin/bash
+# shellcheck disable=SC2015,SC2039,SC2046,SC2086,SC2166,SC3043
+CR='
+'
+Usage(){
+    cat <<EOF
+${0##*/} create [--size=128MB] output path[:targetpath] ...
+
+   if targetpath is not provided for a path, then
+   default of 'efi/boot/bootx64.efi' is used.
+
+   if there are no '/' in targetpath, then efi/boot/
+   is assumed.
+
+Also support 'update' with:
+
+    ${0##*/} update existing.img path:targetpath ...
+EOF
+}
+
+fail() { echo "$@" 1>&2; exit 1; }
+stderr() { echo "$@" 1>&2; }
+cleanup() {
+    [ -n "$TMPD" ] || return 0
+    rm -Rf "${TMPD}"
+}
+
+create() {
+    local size="128MB" staged=""
+    case "$1" in
+        --size=*) size="${1#--size=}"; shift;;
+    esac
+    rm -f "$img" || return 1
+    stderr "creating image ${size} in $img"
+    fallocate "--length=$size" "$img" || return 1
+    out=$(mkfs.fat "$img" 2>&1) || {
+        stderr "failed mkfs.fat $img: $out"
+        return 1
+    }
+    return 0
+}
+
+
+# update([--size=128MB,] output, file[:file] ...)
+#   create file 'output' of size 'size'.
+#   copy files provided to target.  files are 'src:dest'
+#   if no dest is given, default is efi/boot/bootx64.efi
+#   all filenames in image are converted to upper case.
+update() {
+    local img="$1" f="" src="" dest="" destd="" out=""
+    shift
+    staged="${TMPD}/genesp"
+    rm -Rf "$staged" || return 1
+
+    # create a staging directory with renamed files.
+    for f in "$@"; do
+        src="${f%%:*}"
+        dest="${f#*:}"
+        case "$dest" in
+            */*) :;;
+            *) dest="efi/boot/$dest";;
+        esac
+        out=$(echo "$dest" | tr '[:lower:]' '[:upper:]') && dest="$out" || {
+            stderr "failed to convert '$dest' to upper case"
+            return 1
+        }
+        destd=$(dirname "$dest")
+        mkdir -p "$staged/$destd" || {
+            stderr "failed to stage dir '$dest'"
+            return 1
+        }
+        cp "$src" "$staged/$dest" || {
+            stderr "failed to stage cp $src -> $dest"
+            return 1
+        }
+    done
+
+    # shellcheck disable=SC2035
+    ( cd "$staged" && find * -type f ) > "${TMPD}/list" || {
+        stderr "failed t find stage files";
+        return 1;
+    }
+
+    # shellcheck disable=SC2035
+    dirs=$( cd "$staged" && find * -type d ) > "${TMPD}/dirs" || {
+        stderr "failed to find dirs"
+        return 1;
+    }
+
+    local oifs="$IFS"
+    IFS="${CR}"; set -- $dirs; IFS="$oifs"
+
+    mmd -D s -i "$img" "$@" >/dev/null 2>&1 || {
+        # if a dir exists, it will fail. just ignore this.
+        # assuming things will fail later.
+        :
+    }
+
+    # shellcheck disable=SC2162
+    while read f; do
+        echo "$f -> $f" 1>&2
+        mcopy -D o -Q -i "$img" "${staged}/$f" "::$f" || {
+            stderr "mcopy failed $f -> $f";
+            return 1;
+        }
+    done < "${TMPD}/list"
+
+    rm -Rf "$staged" || {
+        stderr "failed to remove $staged"
+        return 1
+    }
+}
+
+[ $# -eq 0 ] && { Usage 1>&2; exit 1; }
+[ "$1" = "-h" -o "$1" = "--help" ] && { Usage; exit 0; }
+
+out=$( { command -v mcopy && command -v mkfs.vfat; } 2>&1) ||
+    fail "missing deps: ${out}"
+
+TMPD=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
+    fail "failed mktemp"
+trap cleanup EXIT
+
+case "$1" in
+    create)
+        shift
+        sizef=""
+        case "$1" in
+            size=*) sizef="$1"; shift;;
+        esac
+        img="$1"
+        shift
+        create ${sizef:+"$sizef"} "$img" || fail "failed create $sizef $1"
+        if [ $# -ne 0 ]; then
+            update "$img" "$@"
+        fi
+        ;;
+    update)
+        shift;
+        update "$@";;
+    *) fail "Unknown cmd '$1'";;
+esac
