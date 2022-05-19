@@ -28,6 +28,7 @@ STUBBY_OBJS = \
 	linux.o \
 	stub.o \
 	kcmdline.o \
+	load-options.o \
 
 .PHONY: all
 all: build test

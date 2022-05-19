@@ -3,10 +3,16 @@
  * load-options.c - all the stuff we need to parse the load options
  */
 
-#include "shim.h"
+#include <efi.h>
+#include <efilib.h>
+
+#define perror Print
+#define dprint Print
+#define dhexdumpat(data, ...)
+
+EFI_GUID BDS_GUID = { 0x8108ac4e, 0x9f11, 0x4d59, { 0x85, 0x0e, 0xe2, 0x1a, 0x52, 0x2c, 0x59, 0xb2 } };
 
 static inline INTN
-__attribute__((unused))
 StrnCaseCmp(CHAR16 *s0, CHAR16 *s1, int n)
 {
 	CHAR16 c0, c1;
@@ -29,17 +35,16 @@ StrnCaseCmp(CHAR16 *s0, CHAR16 *s1, int n)
  * implementation "gracefully" ignores the difference between the
  * UTF-8/ASCII 1-byte NUL and the UCS-2 2-byte NUL.
  */
-static inline bool
-__attribute__((__unused__))
+static inline BOOLEAN
 is_all_nuls(UINT8 *data, UINTN data_size)
 {
 	UINTN i;
 
 	for (i = 0; i < data_size; i++) {
 		if (data[i] != 0)
-			return false;
+			return FALSE;
 	}
-	return true;
+	return TRUE;
 }
 
 CHAR16 *second_stage;
@@ -489,5 +494,3 @@ parse_load_options(EFI_LOADED_IMAGE *li)
 
 	return EFI_SUCCESS;
 }
-
-// vim:fenc=utf-8:tw=75:noet
