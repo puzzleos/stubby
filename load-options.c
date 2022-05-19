@@ -6,10 +6,6 @@
 #include <efi.h>
 #include <efilib.h>
 
-#define perror Print
-#define dprint Print
-#define dhexdumpat(data, ...)
-
 EFI_GUID BDS_GUID = { 0x8108ac4e, 0x9f11, 0x4d59, { 0x85, 0x0e, 0xe2, 0x1a, 0x52, 0x2c, 0x59, 0xb2 } };
 
 static inline INTN
@@ -47,10 +43,6 @@ is_all_nuls(UINT8 *data, UINTN data_size)
 	return TRUE;
 }
 
-CHAR16 *second_stage;
-void *load_options;
-UINT32 load_options_size;
-
 /*
  * Generate the path of an executable given shim's path and the name
  * of the executable
@@ -79,7 +71,7 @@ generate_path_from_image_path(EFI_LOADED_IMAGE *li,
 	if (StrSize(ImagePath) > 5 && StrnCmp(ImagePath, L"\\EFI\\", 5) == 0) {
 		*PathName = StrDuplicate(ImagePath);
 		if (!*PathName) {
-			perror(L"Failed to allocate path buffer\n");
+			Print(L"Failed to allocate path buffer\n");
 			return EFI_OUT_OF_RESOURCES;
 		}
 		return EFI_SUCCESS;
@@ -129,7 +121,7 @@ generate_path_from_image_path(EFI_LOADED_IMAGE *li,
 	*PathName = AllocatePool(StrSize(bootpath) + StrSize(ImagePath));
 
 	if (!*PathName) {
-		perror(L"Failed to allocate path buffer\n");
+		Print(L"Failed to allocate path buffer\n");
 		efi_status = EFI_OUT_OF_RESOURCES;
 		goto error;
 	}
@@ -274,13 +266,11 @@ is_our_path(EFI_LOADED_IMAGE *li, CHAR16 *path)
 
 	efi_status = generate_path_from_image_path(li, path, &PathName);
 	if (EFI_ERROR(efi_status)) {
-		perror(L"Unable to generate path %s: %r\n", path,
-		       efi_status);
+		Print(L"Unable to generate path %s: %r\n", path,
+		      efi_status);
 		goto done;
 	}
 
-	dprint(L"dppath: %s\n", dppath);
-	dprint(L"path:   %s\n", path);
 	if (StrnCaseCmp(dppath, PathName, StrLen(dppath)))
 		ret = 0;
 
@@ -351,9 +341,6 @@ parse_load_options(EFI_LOADED_IMAGE *li)
 	VOID *remaining = NULL;
 	UINT32 remaining_size;
 	CHAR16 *loader_str = NULL;
-
-	dprint(L"full load options:\n");
-	dhexdumpat(li->LoadOptions, li->LoadOptionsSize, 0);
 
 	/*
 	 * Sanity check since we make several assumptions about the length
@@ -473,23 +460,20 @@ parse_load_options(EFI_LOADED_IMAGE *li)
 						&remaining,
 						&remaining_size);
 
-		if (loader_str && is_our_path(li, loader_str)) {
-			li->LoadOptions = remaining;
-			li->LoadOptionsSize = remaining_size;
+		if (loader_str) {
+			if (is_our_path(li, loader_str)) {
+				// move the LoadOptions past the first word (the efi filename)
+				li->LoadOptions = remaining;
+				li->LoadOptionsSize = remaining_size;
+			} else if (remaining_size > 0) {
+				/*
+				 * first word was not an efi filename.
+				 * split_load_options put a NULL at the end of the first word.
+				 * Replace the null with a space.
+				 */
+				loader_str[StrLen(loader_str)] = L' ';
+			}
 		}
-	}
-
-	loader_str = split_load_options(li->LoadOptions, li->LoadOptionsSize,
-					&remaining, &remaining_size);
-
-	/*
-	 * Set up the name of the alternative loader and the LoadOptions for
-	 * the loader
-	 */
-	if (loader_str) {
-		second_stage = loader_str;
-		load_options = remaining;
-		load_options_size = remaining_size;
 	}
 
 	return EFI_SUCCESS;
