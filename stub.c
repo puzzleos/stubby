@@ -33,6 +33,7 @@
 #include "linux.h"
 #include "pe.h"
 #include "util.h"
+#include "load-options.h"
 
 /* magic string to find in the binary image */
 static const char __attribute__((used)) magic[] =
@@ -83,6 +84,17 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	if (EFI_ERROR(err)) {
 		Print(L"Error getting a LoadedImageProtocol handle: %r\n", err);
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+		return err;
+	}
+
+	// parse_load_options is modified from the version in upstream shim.
+	// After calling parse_load_options:
+	//   * LoadOptions should be set to the first character of the
+	//     first argument, skipping the efi filename if it was present.
+	//   * LoadOptionsSize should be set correctly
+	err = parse_load_options(loaded_image);
+	if (EFI_ERROR(err)) {
+		Print(L"Failed to get load options: %r\n", err);
 		return err;
 	}
 
