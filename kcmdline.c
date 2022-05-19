@@ -58,7 +58,6 @@ EFI_STATUS check_cmdline(CONST CHAR8 *cmdline, UINTN cmdline_len, CHAR16 *errmsg
 	*errmsg = '\0';
 
 	CopyMem(buf, cmdline, cmdline_len);
-	// make sure it is null terminated.
 	buf[cmdline_len] = '\0';
 
 	// walk buf, populating tokens
