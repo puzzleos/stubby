@@ -25,9 +25,7 @@
  *
  */
 
-#include <efi.h>
-#include <efilib.h>
-
+#include "stubby_efi.h"
 #include "util.h"
 
 /* unique randomly generated UUID for stubby and related tools */
