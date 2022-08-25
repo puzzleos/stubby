@@ -25,8 +25,7 @@
  *
  */
 
-#include <efi.h>
-#include <efilib.h>
+#include "stubby_efi.h"
 
 #include "linux.h"
 #include "util.h"

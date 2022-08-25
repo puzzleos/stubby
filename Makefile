@@ -27,13 +27,17 @@ STUBBY_OBJS = \
 	pe.o \
 	linux.o \
 	stub.o \
+	stra.o \
 	kcmdline.o \
+
+TEST_EXES = test-cmdline test-get-cmdline
+TEST_OBJS = linux_efilib-lt.o kcmdline-lt.o stra-lt.o
 
 .PHONY: all
 all: build test
 
 .PHONY: build
-build: stubby.efi test-cmdline
+build: stubby.efi $(TEST_EXES)
 
 stubby.so: ${STUBBY_OBJS}
 	${LD} ${LDFLAGS} $^ -o $@ -lefi -lgnuefi
@@ -45,18 +49,18 @@ stubby.so: ${STUBBY_OBJS}
 
 
 .PHONY: test
-test: test-cmdline
-	./test-cmdline
+test: $(TEST_EXES)
+	@for t in $(TEST_EXES); do echo -- $$t --; ./$$t || exit; done
 
 LINUX_TEST_CFLAGS := -DLINUX_TEST $(filter-out -fshort-wchar,$(CFLAGS))
 %-lt.o: %.c
 	$(CC) $(LINUX_TEST_CFLAGS) -c -o $@ $^
 
-test-cmdline: linux_efilib-lt.o kcmdline-lt.o test-cmdline-lt.o
+test-%: test-%-lt.o $(TEST_OBJS)
 	$(CC) $(LINUX_TEST_CFLAGS) -o $@ $^
 
 .PHONY: clean
 clean:
-	${RM} -rf *.efi *.so *.o
+	${RM} -rf *.efi *.so *.o $(TEST_EXES)
 
 # kate: syntax Makefile;

@@ -28,8 +28,7 @@
 #ifndef __STUBBY_UTIL_H
 #define __STUBBY_UTIL_H
 
-#include <efi.h>
-#include <efilib.h>
+#include "stubby_efi.h"
 
 #define ELEMENTSOF(x) (sizeof(x)/sizeof((x)[0]))
 #define OFFSETOF(x,y) __builtin_offsetof(x,y)

@@ -6,7 +6,9 @@
 #include <stdlib.h>
 
 EFI_STATUS do_check_cmdline(const char* cmdline) {
-   return check_cmdline((unsigned char*)cmdline, strlen(cmdline));
+	CHAR16 emsg[256];
+	UINTN emsg_len = sizeof(emsg) / sizeof(emsg[0]);
+	return check_cmdline((unsigned char*)cmdline, strlen(cmdline), emsg, emsg_len);
 }
 
 typedef struct {
@@ -31,14 +33,14 @@ TestData tests[] = {
 };
 
 
-char* efiStatusStr(const EFI_STATUS n) {
+CHAR16* efiStatusStr(const EFI_STATUS n) {
 	if (n == EFI_SUCCESS)
-		return "allow";
+		return L"allow";
 	if (n == EFI_SECURITY_VIOLATION)
-		return "reject-S";
+		return L"reject-S";
 	if (n == EFI_OUT_OF_RESOURCES)
-		return "reject-R";
-	wprintf(L"FAIL: unknown number: '%ld'\n", n);
+		return L"reject-R";
+	Print(L"FAIL: unknown number: '%ld'\n", n);
 	exit(1);
 }
 
@@ -49,28 +51,28 @@ int main()
 	int fails = 0;
 	int passes = 0;
 	int num = sizeof(tests) / sizeof(tests[0]);
-	char nbuf[3];
-	wchar_t *fmt = L"%02s | %-4s | %-8s | %-8s |%s|\n";
+	CHAR16 nbuf[3];
+	CHAR16 *fmt = L"%02ls | %-4ls | %-8ls | %-8ls |%a|\n";
 
-	wprintf(fmt, "#", "rslt", "expect", "found", "cmdline");
+	Print(fmt, L"#", L"rslt", L"expect", L"found", "cmdline");
 	for (int i=0; i<num; i++) {
 		td = tests[i];
 		ret = do_check_cmdline(td.cmdline);
-		sprintf(nbuf, "%02d", i+1);
+		UnicodeSPrint(nbuf, 3, L"%02d", i+1);
 		if (ret == td.expected) {
-			wprintf(fmt, nbuf, "PASS",
+			Print(fmt, nbuf, L"PASS",
 					efiStatusStr(td.expected), efiStatusStr(ret),
 					td.cmdline);
 			passes++;
 		} else {
-			wprintf(fmt, nbuf, "FAIL",
+			wprintf(fmt, nbuf, L"FAIL",
 					efiStatusStr(td.expected), efiStatusStr(ret),
 					td.cmdline);
 			fails++;
 		}
 	}
 
-	wprintf(L"passed: %d. failed: %d\n", passes, fails);
+	Print(L"passed: %d. failed: %d\n", passes, fails);
 	if (fails != 0) {
 		return 1;
 	}
