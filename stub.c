@@ -135,6 +135,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		if (cmdline != NULL) {
 			FreePool(cmdline);
 		}
+		// exiting with either SECURITY_VIOLATION or EFI_ACCESS_DENIED will result
+		// in shim trying to launch mok manager and a confusing "Not Found" error path.
+		if (err == EFI_SECURITY_VIOLATION || err == EFI_ACCESS_DENIED) {
+			err = EFI_INVALID_PARAMETER;
+		}
 		return err;
 	}
 
