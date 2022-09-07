@@ -31,6 +31,7 @@
 #include "kcmdline.h"
 #include "linux.h"
 #include "pe.h"
+#include "stra.h"
 #include "util.h"
 
 /* magic string to find in the binary image */
@@ -135,6 +136,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		rt_cmdline[i] = options[i];
 	}
 	rt_cmdline[rt_cmdline_len] = '\0';
+
+	if (!remove_leading_efi_name(rt_cmdline, &rt_cmdline_len)) {
+		Print(L"remove_leading_efi_name returned error\n");
+		return EFI_INVALID_PARAMETER;
+	}
 
 	err = get_cmdline_with_print(
 			secure, bt_cmdline, bt_cmdline_len, rt_cmdline, rt_cmdline_len,
