@@ -217,8 +217,10 @@ EFI_STATUS get_cmdline(
 	status = check_cmdline(runtime, runtime_len, errbuf, errbuf_buflen);
 
 	// EFI_SECURITY_VIOLATION is allowed if insecure boot, so continue on.
-	if ((status == EFI_SECURITY_VIOLATION && secure) || EFI_ERROR(status)) {
-		goto out;
+	if (EFI_ERROR(status)) {
+		if (status != EFI_SECURITY_VIOLATION || secure) {
+			goto out;
+		}
 	}
 
 	// At this point, part1 and part2 are set so we can just concatenate part1, runtime, part3
@@ -269,6 +271,10 @@ EFI_STATUS get_cmdline_with_print(
 	CHAR16 *errmsg = NULL;
 	EFI_STATUS err;
 
+	// Print(L"stubby loaded with secureboot=%a.\nbuiltin [%d]: %a\nruntime [%d]: %a\n",
+	//	secure ? "true" : "false",
+	//	builtin_len, (builtin_len != 0) ? builtin : (CHAR8*)"",
+	//	runtime_len, (runtime_len != 0) ? runtime : (CHAR8*)"");
 	err = get_cmdline(secure,
 		builtin, builtin_len, runtime, runtime_len,
 		cmdline, cmdline_len, &errmsg);
