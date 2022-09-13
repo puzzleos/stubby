@@ -13,11 +13,43 @@ jobs:
         uses: actions/checkout@v2
       - name: Install Deps
         run: |
+          set -x
           sudo apt-get update --quiet
           sudo apt-get install --quiet --assume-yes --no-install-recommends gnu-efi build-essential
+          sudo apt-get install --quiet --assume-yes --no-install-recommends \
+              dosfstools mtools ovmf python3-minimal qemu-system-x86 qemu-utils shim-signed
+          mkdir ./test-inputs/
+          ./test/collect-firmwares --no-install ./test-inputs
+          ./test/get-krd ./test-inputs
+
       - name: Build
         run: |
           make build
+      - name: Upload Build
+        uses: actions/upload-artifact@v3
+        with:
+          path: |
+            stubby.efi
+
       - name: Unit Test
         run: |
           make test
+      - name: Boot Test
+        run: |
+          fails=""
+          for m in nvram efi-shell; do
+            echo "== $m =="
+            KVM=false ./test/harness run "--boot-mode=$m" \
+              --inputs=./test-inputs "--results=./test-results/$m" \
+              --sbat=sbat.csv --stubby=stubby.efi \
+              test/tests.yaml || fails="$fails $m"
+          done
+          [ -z "$fails" ] || { echo "FAIL: ${fails# }"; exit 1; }
+          exit 0
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v3
+        with:
+          path: |
+            test-inputs/
+            test-results/

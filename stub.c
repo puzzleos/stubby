@@ -31,6 +31,7 @@
 #include "kcmdline.h"
 #include "linux.h"
 #include "pe.h"
+#include "stra.h"
 #include "util.h"
 
 /* magic string to find in the binary image */
@@ -68,7 +69,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	UINTN addrs[ELEMENTSOF(sections) - 1] = {};
 	UINTN offs[ELEMENTSOF(sections) - 1] = {};
 	UINTN szs[ELEMENTSOF(sections) - 1] = {};
-	CHAR8 *bt_cmdline = NULL;
+	CHAR8 *bt_cmdline = (CHAR8*)"";
 	UINTN bt_cmdline_len = 0;
 	CHAR8 *rt_cmdline = NULL;
 	UINTN rt_cmdline_len = 0;
@@ -102,30 +103,43 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		return err;
 	}
 
-	if (szs[0] > 0)
+	if (szs[0] > 0) {
+		bt_cmdline_len = szs[0];
 		bt_cmdline = (CHAR8 *)(loaded_image->ImageBase + addrs[0]);
+	}
 
-	bt_cmdline_len = szs[0];
+	if (bt_cmdline[bt_cmdline_len] != '\0') {
+		Print(L"builtin command line was not null-terminated\n");
+		return EFI_INVALID_PARAMETER;
+	}
 
 	CHAR16 *options;
-	CHAR8 *line;
 	UINTN i;
 	options = (CHAR16 *)loaded_image->LoadOptions;
 	rt_cmdline_len = (loaded_image->LoadOptionsSize /
-		       sizeof(CHAR16)) * sizeof(CHAR8);
-	line = AllocatePool(rt_cmdline_len);
-	if (line == NULL) {
+		sizeof(CHAR16)) * sizeof(CHAR8);
+
+	// when loaded by uefi shell, LoadOptionsSize will include a terminating null (0x00 0x00)
+	// when loaded by nvram, LoadOptionsSize will *not* include a terminating null.
+	// set rt_cmdline_len to not include it.
+	if (rt_cmdline_len > 0 && options[rt_cmdline_len-1] == '\0') {
+		// length included terminating null
+		rt_cmdline_len--;
+	}
+	rt_cmdline = AllocatePool(rt_cmdline_len+1);
+	if (rt_cmdline == NULL) {
 		Print(L"Failed to allocate memory for command line");
 		return EFI_OUT_OF_RESOURCES;
-
 	}
-	for (i = 0; i < rt_cmdline_len; i++)
-		line[i] = options[i];
-	rt_cmdline = line;
 
-	// allow for rt_cmdline_len to have included the terminating null
-	if (rt_cmdline_len > 1 && rt_cmdline[rt_cmdline_len-1] == '\0') {
-		rt_cmdline_len--;
+	for (i = 0; i < rt_cmdline_len; i++) {
+		rt_cmdline[i] = options[i];
+	}
+	rt_cmdline[rt_cmdline_len] = '\0';
+
+	if (!remove_leading_efi_name(rt_cmdline, &rt_cmdline_len)) {
+		Print(L"remove_leading_efi_name returned error\n");
+		return EFI_INVALID_PARAMETER;
 	}
 
 	err = get_cmdline_with_print(
@@ -134,6 +148,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	if EFI_ERROR(err) {
 		if (cmdline != NULL) {
 			FreePool(cmdline);
+		}
+		// exiting with either SECURITY_VIOLATION or EFI_ACCESS_DENIED will result
+		// in shim trying to launch mok manager and a confusing "Not Found" error path.
+		if (err == EFI_SECURITY_VIOLATION || err == EFI_ACCESS_DENIED) {
+			err = EFI_INVALID_PARAMETER;
 		}
 		return err;
 	}

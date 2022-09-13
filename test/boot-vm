@@ -1,0 +1,96 @@
+#!/bin/bash
+# shellcheck disable=SC2015,SC2039,SC2046,SC2086,SC2166,SC3043
+TEMP_D=""
+OVMFCODE=/usr/share/OVMF/OVMF_CODE.fd
+SB_OVMFVARS=/usr/share/OVMF/OVMF_VARS.snakeoil.fd
+IB_OVMFVARS=/usr/share/OVMF/OVMF_VARS.fd
+
+OVMFCODE=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd
+OVMFCODE=/usr/share/OVMF/OVMF_CODE_4M.fd
+SB_OVMFVARS=/usr/share/OVMF/OVMF_VARS_4M.snakeoil.fd
+IB_OVMFVARS=/usr/share/OVMF/OVMF_VARS_4M.fd
+
+Usage() {
+    cat <<EOF
+${0##*/} [options] disk-image
+
+   execute qemu uefi, booting from disk-image.
+
+   options:
+     -v | --verbose       be more verbose
+     -s | --secureboot    boot using secureboot.
+EOF
+}
+
+fail() { echo "$@" 1>&2; exit 1; }
+
+cleanup() {
+    [ -d "$TEMP_D" ] || rm -Rf "$TEMP_D"
+}
+
+main() {
+    local sopts="hsv" o=""
+    local lopts="help,secureboot,verbose"
+    o=$(getopt "--name=${0##*/}" "--options=$sopts" "--long=$lopts" -- "$@") &&
+        eval set -- "$o" || { bad_Usage; return; }
+
+	local cur="" secureboot=false ovmfvars=""
+
+	while [ $# -ne 0 ]; do
+        cur="$1"
+		case "$cur" in
+			-h|--help) Usage ; exit 0;;
+			-s|--secureboot) secureboot=true;;
+			-v|--verbose) VERBOSITY=$((VERBOSITY+1));;
+			--) shift; break;;
+		esac
+		shift;
+	done
+    [ $# -eq 2 ] || { Usage 1>&2; return 1; }
+
+    local esp="$1" log="$2"
+    [ -f "$esp" ] || fail "esp '$esp': not a file"
+    espfp=$(readlink -f "$esp") || fail "failed to get full path to $esp"
+
+    TEMP_D=$(mktemp -d "${TMPD:-/tmp/${0##*/}.XXXXXX}") || fail "failed to mktemp"
+    trap cleanup EXIT
+    rund="${TEMP_D}/run"
+
+    mkdir "$rund" || fail "failed to make run dir"
+
+    [ "$secureboot" = "true" ] &&
+        ovmfvars="${SB_OVMFVARS}" || ovmfvars="${IB_OVMFVARS}"
+
+    cp -v "$OVMFCODE" "$rund/ovmf-code.fd" ||
+        fail "failed to copy ovmf code to run-dir"
+    cp -v "$ovmfvars" "$rund/ovmf-vars.fd" ||
+        fail "failed to copy ovmf vars to run-dir"
+
+    # create a qcow backed by the input file.
+    # This means we don't change it and is sort of a "fast copy"
+    qemu-img create -f qcow2 -b "$espfp" -F raw "$rund/esp.qcow2" ||
+        fail "failed to create esp qcow"
+
+    # other useful flags:
+    #  -device VGA -vnc :9000
+    #   -object rng-random,filename=/dev/urandom,id=rng0 \
+    #   -device virtio-rng-pci,rng=rng0 \
+    #
+    #  this flag may allow you to toggle secure boot on or off:
+    #     -global driver=cfi.pflash01,property=secure,value=on
+    set -- \
+    qemu-system-x86_64 \
+        -enable-kvm -m 1024 -serial mon:stdio \
+        -vnc none \
+        -nic none \
+        -drive "if=pflash,format=raw,file=$rund/ovmf-code.fd,readonly" \
+        -drive "if=pflash,format=raw,file=$rund/ovmf-vars.fd" \
+        -drive "file=$rund/esp.qcow2,id=disk00,if=none,format=qcow2,index=0" \
+        -device "virtio-blk,drive=disk00,serial=esp.img"
+
+    echo "$*" > "$log" || fail "failed to write to $log"
+    echo "executing:" "$@" 1>&2
+    #timeout --foreground 2m "$@"
+}
+
+main "$@"

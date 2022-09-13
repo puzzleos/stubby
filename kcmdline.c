@@ -58,7 +58,6 @@ EFI_STATUS check_cmdline(CONST CHAR8 *cmdline, UINTN cmdline_len, CHAR16 *errmsg
 	*errmsg = '\0';
 
 	CopyMem(buf, cmdline, cmdline_len);
-	// make sure it is null terminated.
 	buf[cmdline_len] = '\0';
 
 	// walk buf, populating tokens
@@ -66,12 +65,12 @@ EFI_STATUS check_cmdline(CONST CHAR8 *cmdline, UINTN cmdline_len, CHAR16 *errmsg
 		c = buf[i];
 		if (c < 0x20 || c > 0x7e) {
 			UnicodeSPrint(errmsg, errmsg_len,
-				L"Bad character 0x%02hhx in position %d: %a.\n", c, i, cmdline);
+				L"Bad character 0x%02hhx in position %d: %a.", c, i, cmdline);
 			status = EFI_SECURITY_VIOLATION;
 			goto out;
 		}
 		if (i >= MAX_TOKENS) {
-			UnicodeSPrint(errmsg, errmsg_len, L"Too many tokens in cmdline.\n");
+			UnicodeSPrint(errmsg, errmsg_len, L"Too many tokens in cmdline.");
 			status = EFI_SECURITY_VIOLATION;
 			goto out;
 		}
@@ -97,7 +96,7 @@ EFI_STATUS check_cmdline(CONST CHAR8 *cmdline, UINTN cmdline_len, CHAR16 *errmsg
 
 	for (i=0; i < num_toks; i++) {
 		if (!is_allowed(tokens[i])) {
-			UnicodeSPrint(errmsg, errmsg_len, L"token not allowed: %a\n", tokens[i]);
+			UnicodeSPrint(errmsg, errmsg_len, L"token not allowed: %a", tokens[i]);
 			status = EFI_SECURITY_VIOLATION;
 		}
 	}
@@ -165,7 +164,7 @@ EFI_STATUS get_cmdline(
 				if (runtime_len != 0) {
 					status = EFI_INVALID_PARAMETER;
 					UnicodeSPrint(errbuf, errbuf_buflen,
-							L"runtime arguments cannot be given to non-empty builtin without marker\n");
+							L"runtime arguments cannot be given to non-empty builtin without marker");
 					goto out;
 				}
 			} else {
@@ -180,7 +179,7 @@ EFI_STATUS get_cmdline(
 			if (strstra(p + marker_len, marker) != NULL) {
 				status = EFI_INVALID_PARAMETER;
 				UnicodeSPrint(errbuf, errbuf_buflen,
-						L"%a appears more than once in builtin cmdline\n", marker);
+						L"%a appears more than once in builtin cmdline", marker);
 				goto out;
 			}
 
@@ -189,7 +188,7 @@ EFI_STATUS get_cmdline(
 			if (!((p == builtin || *(p - 1) == ' ') &&
 					(part2_len == 0 || *(p + marker_len) == ' '))) {
 				status = EFI_INVALID_PARAMETER;
-				UnicodeSPrint(errbuf, errbuf_buflen, L"%a is not a full token\n", marker);
+				UnicodeSPrint(errbuf, errbuf_buflen, L"%a is not a full token", marker);
 				goto out;
 			}
 
@@ -203,14 +202,14 @@ EFI_STATUS get_cmdline(
 	// namespace appeared in the builtin (other than marker)
 	if (strstra(part1, namespace) != NULL || strstra(part2, namespace) != NULL) {
 		status = EFI_INVALID_PARAMETER;
-		UnicodeSPrint(errbuf, errbuf_buflen, L"%a appears in builtin cmdline\n", namespace);
+		UnicodeSPrint(errbuf, errbuf_buflen, L"%a appears in builtin cmdline", namespace);
 		goto out;
 	}
 
 	// namespace appears in runtime
 	if (strstra(runtime, namespace) != NULL) {
 		status = EFI_INVALID_PARAMETER;
-		UnicodeSPrint(errbuf, errbuf_buflen, L"%a appears in runtime cmdline\n", namespace);
+		UnicodeSPrint(errbuf, errbuf_buflen, L"%a appears in runtime cmdline", namespace);
 		goto out;
 	}
 
@@ -218,8 +217,10 @@ EFI_STATUS get_cmdline(
 	status = check_cmdline(runtime, runtime_len, errbuf, errbuf_buflen);
 
 	// EFI_SECURITY_VIOLATION is allowed if insecure boot, so continue on.
-	if ((status == EFI_SECURITY_VIOLATION && secure) || EFI_ERROR(status)) {
-		goto out;
+	if (EFI_ERROR(status)) {
+		if (status != EFI_SECURITY_VIOLATION || secure) {
+			goto out;
+		}
 	}
 
 	// At this point, part1 and part2 are set so we can just concatenate part1, runtime, part3
@@ -270,6 +271,10 @@ EFI_STATUS get_cmdline_with_print(
 	CHAR16 *errmsg = NULL;
 	EFI_STATUS err;
 
+	// Print(L"stubby loaded with secureboot=%a.\nbuiltin [%d]: %a\nruntime [%d]: %a\n",
+	//	secure ? "true" : "false",
+	//	builtin_len, (builtin_len != 0) ? builtin : (CHAR8*)"",
+	//	runtime_len, (runtime_len != 0) ? runtime : (CHAR8*)"");
 	err = get_cmdline(secure,
 		builtin, builtin_len, runtime, runtime_len,
 		cmdline, cmdline_len, &errmsg);

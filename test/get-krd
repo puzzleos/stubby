@@ -1,0 +1,131 @@
+#!/bin/bash
+# shellcheck disable=SC2015,SC2166,SC2181,SC2162
+set -o pipefail
+TEMP_D=""
+CIRROS_VERSION=${CIRROS_VERSION:-0.5.2}
+CIRROS_ARCH=${CIRROS_ARCH:-x86_64}
+CIRROS_MIRROR="http://download.cirros-cloud.net/"
+
+Usage() {
+    cat <<EOF
+Usage: ${0##*/} [outd]
+
+  downloads cirros kernel at ${CIRROS_VERSION} to outd.
+
+  if not provided, 'outd' defaults to '.'.
+
+  creates:
+    outd/kernel           a cirros kernel
+    outd/initrd.dist   an unmodified cirros initramfs
+    outd/initrd        an updated initramfs that shuts itself off.
+EOF
+}
+
+cleanup(){
+    [ ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
+}
+
+mkcpio() {
+    local tmpf="" rc=0
+    tmpf=$(mktemp "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") || {
+        stderr "failed to create tmp file"
+        return 1
+    }
+    (for f in "$@"; do echo "$f"; done |
+        cpio --create --owner=+0:+0 -H newc ) 2>"$tmpf"
+    rc=$?
+    [ $rc -eq 0 ] || {
+        stderr "failed cpio create newc:"
+        cat "$tmpf" 1>&2
+    }
+    rm -f "$tmpf"
+    return $rc
+}
+
+write_init() {
+    cat > "$1" <<"EOF"
+#!/bin/sh
+msg() { 
+    local d="" written=false
+    for d in /dev/ttyS0 /dev/tty1; do
+        [ -c "$d" ] || continue
+        echo "$@" >"$d" 2>&1 && written=true;
+    done
+    [ "$written" = "true" ] && return 0
+    echo "$@"
+}
+panic() {
+    msg "FATAL:" "$@"
+}
+
+msg "==== MINI INITRAMFS INIT ===="
+mkdir -p /proc /dev /tmp /sys
+mount -t devtmpfs /dev /dev ||
+    panic "failed mount devtmpfs"
+mount -t proc /proc /proc ||
+    panic "failed mount proc"
+mount -t sysfs /sys /sys ||
+    panic "failed mount /sys"
+
+echo "6 4 1 7" >/proc/sys/kernel/printk
+
+read cmdline < /proc/cmdline ||
+    panic "failed to read cmdline"
+
+environ=$(tr '\0' ' ' </proc/1/environ) ||
+    panic "failed to read /proc/1/environ"
+
+msg "/INIT COMMAND LINE:" "$0" "$@"
+msg "/INIT ENVIRON:" "$environ"
+msg "KERNEL COMMAND LINE:" "$cmdline"
+
+echo o >/proc/sysrq-trigger
+
+read || panic "Read returned $?"
+panic "Read returned success; What to do now?"
+exit 1
+EOF
+    [ $? -eq 0 ] || return 1
+    chmod 755 "$1"
+}
+
+fail() { stderr "$@"; exit 1; }
+stderr() { echo "$@" 1>&2; }
+
+[ "$1" = "-h" -o "$1" = "--help" ] && { Usage; exit 0; }
+[ $# -gt 1 ] && { Usage 1>&2; stderr "got $# args."; exit 1; }
+
+outd=${1:-.}
+[ -d "$outd" ] || mkdir -p "$outd" || fail "failed to create $outd"
+cd "$outd" || fail "could not cd '$outd'"
+
+TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
+    fail "could not make a temp dir"
+trap cleanup EXIT
+
+burl="${CIRROS_MIRROR}/${CIRROS_VERSION}"
+for toks in kernel initramfs:initrd.dist; do
+    rname=${toks%:*}
+    lname=${toks#*:}
+    cname="cirros-${CIRROS_VERSION}-${CIRROS_ARCH}-$rname"
+    [ -f "$lname" ] && {
+        stderr "using cached $outd/$lname"
+        continue;
+    }
+    wget "$burl/$cname" -O "$lname.tmp" &&
+        mv "$lname.tmp" "$lname" || {
+            rm -f "$lname.tmp"
+            fail "failed to download $lname from $burl/$cname"
+        }
+done
+
+init="${TEMP_D}/init"
+write_init "$init" || fail "failed to write init to file"
+( zcat initrd.dist && cd "${TEMP_D}" && mkcpio init ) |
+    gzip -c > "initrd.tmp" &&
+    mv "initrd.tmp" "initrd" || {
+        rm -f "initrd.tmp"
+        fail "failed to create initrd"
+    }
+stderr "created ${outd%/}/initrd with 'init'"
+exit

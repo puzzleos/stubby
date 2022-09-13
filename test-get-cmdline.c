@@ -32,6 +32,11 @@ TestData tests[] = {
 		"",
 		"",
 		""},
+	// insecure, no builtin, bad runtime token allows runtime
+	{EFI_SECURITY_VIOLATION, false,
+		"",
+		"root=atomix verbose rootkit=yes",
+		"root=atomix verbose rootkit=yes"},
 	// all good secure marker at beginning
 	{EFI_SUCCESS, true,
 		"STUBBY_RT_CLI1 root=atomix more",
@@ -126,7 +131,7 @@ BOOLEAN do_get_cmdline(TestData td) {
 
 	// Print(L"%d/%d strcmp(%a, found)=%d\n", strlen(td.expected), found_len, td.expected, strcmp(td.expected, found));
 	if (strlen(td.expected) != found_len || strcmp(td.expected, (char *)found) != 0) {
-		Print(L"expected(%d): %a|\nfound   (%d): %a|\nerrmsg: %ls",
+		Print(L"expected(%d): %a|\nfound   (%d): %a|\nerrmsg: %ls\n",
 				strlen(td.expected), td.expected, found_len, found, errmsg);
 		if (errmsg) {
 			free(errmsg);
