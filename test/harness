@@ -3,7 +3,9 @@ import argparse
 import codecs
 import functools
 import logging
+import multiprocessing
 import os.path
+import queue
 import re
 import shlex
 import shutil
@@ -399,6 +401,9 @@ def _add_run_args(s):
         (("--ovmf-insecure-vars",),
          {"action": "store",
           "help": ("ovmf-vars for insecure boot. [<inputs>/ovmf-insecure-vars.fd]")}),
+        (("--num-threads",),
+          {"action": "store", "type":  int, "default": multiprocessing.cpu_count(),
+           "help": "number of parallel qemu processes to run"}),
     )
 
     for args, kwargs in runargs:
@@ -569,6 +574,7 @@ class Runner:
         # github actions do not support kvm.
         # https://github.com/actions/runner-images/issues/183
         self.kvm = get_env_boolean("KVM", True)
+        self.num_threads = cliargs.num_threads
 
     def _to_workd(self, fpath, name):
         newpath = path_join(self.workdir, name)
@@ -576,8 +582,20 @@ class Runner:
         return newpath
 
     def run_all(self):
+        jobq = queue.Queue()
+        def worker():
+            while True:
+                self.run(jobq.get())
+                jobq.task_done()
+
+        # Turn-on the worker thread.
+        for i in range(self.num_threads):
+            threading.Thread(target=worker, daemon=True).start()
+
         for testdata in self.tests:
-            self.run(testdata)
+            jobq.put(testdata)
+
+        jobq.join()
 
     def run_name(self, name):
         td = None
@@ -774,7 +792,7 @@ def main_run(cliargs):
     runner = Runner(cliargs)
     try:
         tests = runner.tests
-        print("There are %d tests to run" % len(tests))
+        print("There are %d tests to run in %d threads" % (len(tests), cliargs.num_threads))
         runner.run_all()
     finally:
         runner.cleanup()
