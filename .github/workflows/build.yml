@@ -28,8 +28,11 @@ jobs:
       - name: Upload Build
         uses: actions/upload-artifact@v3
         with:
+          if-no-files-found: error
+          name: stubby
           path: |
             stubby.efi
+            sbat.csv
 
       - name: Unit Test
         run: |
@@ -45,11 +48,13 @@ jobs:
               test/tests.yaml || fails="$fails $m"
           done
           [ -z "$fails" ] || { echo "FAIL: ${fails# }"; exit 1; }
+
+          tar -cf test-data.tar stubby.efi sbat.csv test-inputs/ test-results/
           exit 0
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v3
         with:
-          path: |
-            test-inputs/
-            test-results/
+          if-no-files-found: error
+          name: test-data
+          path: test-data.tar
