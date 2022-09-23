@@ -54,8 +54,22 @@ msg() {
     [ "$written" = "true" ] && return 0
     echo "$@"
 }
+
 panic() {
     msg "FATAL:" "$@"
+}
+
+showpcrs() {
+    local num="" fpath="" val=""
+    for num in "$@"; do
+        val="N/A"
+        fpath="/sys/class/tpm/tpm0/pcr-sha256/$num"
+        if [ -f "$fpath" ]; then
+            { read val < "$fpath" ; } >/dev/null 2>&1 ||
+                val="READ-ERROR"
+        fi
+        msg "PCR${num}: ${val}"
+    done
 }
 
 msg "==== MINI INITRAMFS INIT ===="
@@ -78,6 +92,7 @@ environ=$(tr '\0' ' ' </proc/1/environ) ||
 msg "/INIT COMMAND LINE:" "$0" "$@"
 msg "/INIT ENVIRON:" "$environ"
 msg "KERNEL COMMAND LINE:" "$cmdline"
+showpcrs 7
 
 case " $cmdline " in
     *\ debug\ *|*\ console=debug\ *)
