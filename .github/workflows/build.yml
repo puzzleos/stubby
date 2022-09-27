@@ -14,14 +14,20 @@ jobs:
       - name: Install Deps
         run: |
           set -x
+          rel=$(lsb_release -sc)
+          if [ "$rel" = "focal" ]; then
+            # swtpm is not present in ubuntu in focal.
+            sudo add-apt-repository -y ppa:puzzleos/dev
+          fi
           sudo apt-get update --quiet
           sudo apt-get install --quiet --assume-yes --no-install-recommends gnu-efi build-essential
           sudo apt-get install --quiet --assume-yes --no-install-recommends \
-              dosfstools mtools ovmf python3-minimal qemu-system-x86 qemu-utils shim-signed
+              dosfstools mtools ovmf python3-minimal qemu-system-x86 qemu-utils shim-signed swtpm
+      - name: Collect Inputs
+        run: |
           mkdir ./test-inputs/
           ./test/collect-firmwares --no-install ./test-inputs
           ./test/get-krd ./test-inputs
-
       - name: Build
         run: |
           make build
