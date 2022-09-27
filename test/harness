@@ -581,7 +581,7 @@ class Runner:
         # github actions do not support kvm.
         # https://github.com/actions/runner-images/issues/183
         self.kvm = get_env_boolean("KVM", True)
-        self.num_threads = cliargs.num_threads
+        self.num_threads = max(cliargs.num_threads, len(self.tests))
 
     def _to_workd(self, fpath, name):
         newpath = path_join(self.workdir, name)
@@ -647,7 +647,6 @@ class Runner:
         rel_ocode_src = path_join("..", os.path.basename(ocode_src))
         rel_esp = os.path.basename(esp)
 
-
         cmd_base = [
             "qemu-system-x86_64",
             "-M", "q35,smm=on" + (",accel=kvm" if self.kvm else ""),
@@ -661,22 +660,42 @@ class Runner:
             # rather than shortcutting out the setting of nvram in MODE_NVRAM
             "-drive", f"if=pflash,format=raw,file={rel_ovars},snapshot=on",
             "-drive", f"file={rel_esp},id=disk00,if=none,format=raw,index=0,snapshot=on",
-            "-device", "virtio-blk,drive=disk00,serial=esp-image"]
+            "-device", "virtio-blk,drive=disk00,serial=esp-image",
+            "-chardev", "socket,id=chrtpm,path=./tpm/socket",
+            "-tpmdev", "emulator,id=tpm0,chardev=chrtpm",
+            "-device", "tpm-tis,tpmdev=tpm0"]
 
         cmd = cmd_base + [
              "-serial", f"file:{slog}.raw",
              "-vnc", "none",
         ]
 
+        os.makedirs(path_join(run_d, "tpm"))
+        tpm_cmd = ["swtpm", "socket", "--tpmstate=dir=./tpm",
+                   "--ctrl=type=unixio,path=./tpm/socket",
+                   "--log=level=20,file=./tpm/log",
+                   "--pid=file=./tpm/pid", "--tpm2"]
+
         cmd_inter = cmd_base + ["-serial", "mon:stdio"]
 
-        write_file(path_join(run_d, "boot"), "#!/bin/sh\n" + " ".join(cmd_inter) + "\n")
+        write_file(path_join(run_d, "boot"),
+                "#!/bin/sh\n" +
+                " ".join(tpm_cmd) + " &\n" +
+                " ".join(cmd_inter) + "\n" +
+                "r=$?\n" + "wait\n" + "exit $r\n")
+
+        timeout = 60
+
+        tpm_thread = threading.Thread(
+            target=subp, args=(tpm_cmd,), daemon=True,
+            kwargs={"cwd": run_d, "rcs": None, "capture": False, "timeout": timeout})
+        tpm_thread.start()
 
         with open(qemu_log, "wb") as qfp:
             qfp.write(b"# " + b" ".join([s.encode("utf-8") for s in cmd]) + b"\n")
             qfp.flush()
             ret = subp(cmd, capture=False, rcs=None, cwd=run_d,
-                       stderr=subprocess.STDOUT, stdout=qfp, timeout=60)
+                       stderr=subprocess.STDOUT, stdout=qfp, timeout=timeout)
             qfp.write(b"\nrc=%d\n" % ret.rc)
 
         try:
@@ -684,6 +703,15 @@ class Runner:
                 print("qemu output: %s\n" % read_file(qemu_log))
                 raise SubpError(ret)
         finally:
+            if tpm_thread.is_alive():
+                tpm_pidf = path_join(run_d, "tpm", "pid")
+                if os.path.exists(tpm_pidf):
+                    pid = read_file(tmp_pidf).strip()
+                    try:
+                        os.kill(pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+            tpm_thread.join()
             if os.path.exists(slog + ".raw"):
                 with open(slog + ".raw", "rb") as rfp:
                     with open(slog, "wb") as wfp:
