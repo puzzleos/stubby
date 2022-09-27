@@ -109,7 +109,12 @@ TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
     fail "could not make a temp dir"
 trap cleanup EXIT
 
-burl="${CIRROS_MIRROR}/${CIRROS_VERSION}"
+case "${CIRROS_VERSION}" in
+    # daily 220919
+    d2*) burl="${CIRROS_MIRROR}/daily/20${CIRROS_VERSION#d}";;
+    *) burl="${CIRROS_MIRROR}/${CIRROS_VERSION}";;
+esac
+
 for toks in kernel initramfs:initrd.dist; do
     rname=${toks%:*}
     lname=${toks#*:}
