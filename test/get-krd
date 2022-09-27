@@ -79,8 +79,14 @@ msg "/INIT COMMAND LINE:" "$0" "$@"
 msg "/INIT ENVIRON:" "$environ"
 msg "KERNEL COMMAND LINE:" "$cmdline"
 
-echo o >/proc/sysrq-trigger
+case " $cmdline " in
+    *\ debug\ *|*\ console=debug\ *)
+        msg "executing shell for debug"
+        /bin/sh
+        ;;
+esac
 
+echo o >/proc/sysrq-trigger
 read || panic "Read returned $?"
 panic "Read returned success; What to do now?"
 exit 1
