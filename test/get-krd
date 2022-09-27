@@ -2,7 +2,7 @@
 # shellcheck disable=SC2015,SC2166,SC2181,SC2162
 set -o pipefail
 TEMP_D=""
-CIRROS_VERSION=${CIRROS_VERSION:-0.5.2}
+CIRROS_VERSION=${CIRROS_VERSION:-0.6.0}
 CIRROS_ARCH=${CIRROS_ARCH:-x86_64}
 CIRROS_MIRROR="http://download.cirros-cloud.net/"
 
