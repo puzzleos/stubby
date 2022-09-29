@@ -10,7 +10,7 @@
 // These are the tokens that are allowed to be passed on EFI cmdline.
 static const CHAR8 allowed[][32] = {
 	"^console=",
-	"^root=oci:",
+	"^root=soci:",
 	"root=atomix",
 	"ro",
 	"quiet",
