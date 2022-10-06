@@ -684,7 +684,7 @@ class Runner:
                 " ".join(cmd_inter) + "\n" +
                 "r=$?\n" + "wait\n" + "exit $r\n")
 
-        timeout = 60
+        timeout = 120
 
         tpm_thread = threading.Thread(
             target=subp, args=(tpm_cmd,), daemon=True,
