@@ -47,9 +47,9 @@ jobs:
               --sbat=sbat.csv --stubby=stubby.efi \
               test/tests.yaml || fails="$fails $m"
           done
-          [ -z "$fails" ] || { echo "FAIL: ${fails# }"; exit 1; }
 
           tar -cf test-data.tar stubby.efi sbat.csv test-inputs/ test-results/
+          [ -z "$fails" ] || { echo "FAIL: ${fails# }"; exit 1; }
           exit 0
 
       - name: Upload Test Results
