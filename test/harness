@@ -404,6 +404,9 @@ def _add_run_args(s):
         (("--num-threads",),
           {"action": "store", "type":  int, "default": multiprocessing.cpu_count(),
            "help": "number of parallel qemu processes to run"}),
+        (("--work-dir",),
+          {"action": "store", "default": None,
+           "help": "Use provided dir for working directory"}),
     )
 
     for args, kwargs in runargs:
@@ -527,9 +530,13 @@ def get_env_boolean(name, default):
 class Runner:
     def __init__(self, cliargs, workdir=None):
         self.cleanup_workdir = True
-        self.workdir = workdir
-        if self.workdir is None:
+        if workdir is None:
             self.workdir = tempfile.mkdtemp(prefix=TMP_PREFIX)
+        else:
+            self.cleanup_workdir = False
+            self.workdir = os.path.abspath(workdir)
+            if not os.path.isdir(self.workdir):
+                os.makedirs(self.workdir)
 
         self.testinfo = load_test_data(cliargs.testdata)
         errors = _check_run_args(cliargs)
@@ -789,7 +796,7 @@ def validate_results(results_d):
 
 
 def main_run(cliargs):
-    runner = Runner(cliargs)
+    runner = Runner(cliargs, workdir=cliargs.work_dir)
     try:
         tests = runner.tests
         print("There are %d tests to run in %d threads" % (len(tests), cliargs.num_threads))
