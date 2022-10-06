@@ -792,7 +792,7 @@ def validate_results(results_d):
             print("%s/%s\n %s%s\n" %
                   (testname, assertname, indent,
                    ("\n" + indent).join(str(err).splitlines())))
-    return 0
+    return 1
 
 
 def main_run(cliargs):
