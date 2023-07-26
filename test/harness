@@ -703,11 +703,12 @@ class Runner:
                 raise SubpError(ret)
         finally:
             if tpm_thread.is_alive():
+                # we don't want to wait until it times out if qemu died quickly.
                 tpm_pidf = path_join(run_d, "tpm", "pid")
                 if os.path.exists(tpm_pidf):
                     pid = read_file(tmp_pidf).strip()
                     try:
-                        os.kill(pid, signal.SIGKILL)
+                        os.kill(pid, signal.SIGTERM)
                     except ProcessLookupError:
                         pass
             tpm_thread.join()
