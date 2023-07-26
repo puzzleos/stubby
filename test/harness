@@ -535,8 +535,7 @@ class Runner:
         else:
             self.cleanup_workdir = False
             self.workdir = os.path.abspath(workdir)
-            if not os.path.isdir(self.workdir):
-                os.makedirs(self.workdir)
+            ensure_dir(self.workdir)
 
         self.testinfo = load_test_data(cliargs.testdata)
         errors = _check_run_args(cliargs)
@@ -670,7 +669,7 @@ class Runner:
              "-vnc", "none",
         ]
 
-        os.makedirs(path_join(run_d, "tpm"))
+        ensure_dir(path_join(run_d, "tpm"))
         tpm_cmd = ["swtpm", "socket", "--tpmstate=dir=./tpm",
                    "--ctrl=type=unixio,path=./tpm/socket",
                    "--log=level=20,file=./tpm/log",
