@@ -883,9 +883,9 @@ def validate_results(results_d):
 
 def main_run(cliargs):
     runner = Runner(cliargs, workdir=cliargs.work_dir)
+    print("There are %d tests to run in %d threads" %
+          (len(runner.tests), cliargs.num_threads))
     try:
-        tests = runner.tests
-        print("There are %d tests to run in %d threads" % (len(tests), cliargs.num_threads))
         runner.run_all()
     finally:
         runner.cleanup()
