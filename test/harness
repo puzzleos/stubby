@@ -21,6 +21,8 @@ import yaml
 MODE_NVRAM = 'nvram'
 MODE_UEFI_SHELL = 'efi-shell'
 
+TEST_EXECUTED = "executed"
+
 TMP_PREFIX = "stubbytest."
 STARTUP_NSH_UEFI_SHELL = r"""setvar SecureBoot
 fs0:
@@ -261,18 +263,24 @@ def subp(cmd, capture=True, data=None, rcs=(0,), timeout=None, ksignal=signal.SI
             except Exception as e:
                 result.exception = e
 
-        if timeout is not None and ksignal != signal.SIGKILL:
+        if timeout is None and ksignal == signal.SIGKILL:
+            communicate()
+        else:
             thread = threading.Thread(target=communicate)
             thread.start()
             thread.join(timeout)
             if thread.is_alive():
-                sp.send_signal(ksignal)
-                thread.join()
                 result.exception = subprocess.TimeoutExpired(cmd=cmd, timeout=timeout)
-        else:
-            communicate()
+                sp.send_signal(ksignal)
+                thread.join(5)
+                if thread.is_alive():
+                    print("%s didn't die on %s, sending SIGTERM." %
+                          (cmd[0], ksignal))
+                    sp.send_signal(signal.SIGTERM)
+                    thread.join()
 
-        result.rc = sp.returncode
+        if result.exception is None:
+            result.rc = sp.returncode
 
         if not result.out:
             result.out = b''
@@ -591,8 +599,10 @@ class Runner:
         jobq = queue.Queue()
         def worker():
             while True:
-                self.run(jobq.get())
-                jobq.task_done()
+                try:
+                    self.run(jobq.get())
+                finally:
+                    jobq.task_done()
 
         # Turn-on the worker thread.
         for i in range(self.num_threads):
@@ -616,15 +626,41 @@ class Runner:
 
     def run(self, testdata):
         name = testdata["name"]
-        run_d = path_join(self.workdir, name)
         results_d = path_join(self.results_d, name)
-        ensure_dir(run_d)
         ensure_dir(results_d)
-        esp = path_join(run_d, "esp.raw")
+        result = TEST_EXECUTED
+        run_d = path_join(self.workdir, name)
+        ensure_dir(run_d)
+        results_d = path_join(self.results_d, name)
+        ensure_dir(results_d)
+
+        rlogfp = open(path_join(results_d, "run.log"), "w")
+        def runlog(msg):
+            rlogfp.write(msg + "\n")
+            rlogfp.flush()
 
         qemu_log = path_join(results_d, "qemu.log")
-        slog = path_join(results_d, "serial.log")
-        print(f"Starting {name} in {run_d}\n qemu_log: {qemu_log}\n serial: {slog}.raw")
+        serial_log = path_join(results_d, "serial.log")
+        print(f"Starting {name} in {run_d}\n qemu_log: {qemu_log}\n serial: {serial_log}.raw")
+
+        try:
+            self._run(testdata, run_d, qemu_log, serial_log, runlog)
+        except SubpError as e:
+            if isinstance(e.result.exception, subprocess.TimeoutExpired):
+                result = "TIMEOUT: " + str(e)
+            else:
+                result = "SUBPROCESS: " + str(e)
+            raise
+        except Exception as e:
+            result = "EXCEPTION: " + str(e)
+            raise
+        finally:
+            write_file(path_join(results_d, "execution-result"), result + "\n")
+            rlogfp.close()
+
+    def _run(self, testdata, run_d, qemu_log, serial_log, log):
+        name = testdata["name"]
+        esp = path_join(run_d, "esp.raw")
 
         gen_esp(
             esp, run_d=run_d, mode=self.boot_mode,
@@ -665,7 +701,7 @@ class Runner:
             "-device", "tpm-tis,tpmdev=tpm0"]
 
         cmd = cmd_base + [
-             "-serial", f"file:{slog}.raw",
+             "-serial", f"file:{serial_log}.raw",
              "-vnc", "none",
         ]
 
@@ -690,35 +726,50 @@ class Runner:
             kwargs={"cwd": run_d, "rcs": None, "capture": False, "timeout": timeout})
         tpm_thread.start()
 
+        log("started tpm, starting qemu")
         with open(qemu_log, "wb") as qfp:
             qfp.write(b"# " + b" ".join([s.encode("utf-8") for s in cmd]) + b"\n")
             qfp.flush()
             ret = subp(cmd, capture=False, rcs=None, cwd=run_d,
                        stderr=subprocess.STDOUT, stdout=qfp, timeout=timeout)
             qfp.write(b"\nrc=%d\n" % ret.rc)
+        log("qemu exited %d" % ret.rc)
 
-        try:
-            if ret.rc != 0:
-                print("qemu output: %s\n" % read_file(qemu_log))
-                raise SubpError(ret)
-        finally:
-            if tpm_thread.is_alive():
-                # we don't want to wait until it times out if qemu died quickly.
-                tpm_pidf = path_join(run_d, "tpm", "pid")
-                if os.path.exists(tpm_pidf):
-                    pid = read_file(tmp_pidf).strip()
-                    try:
-                        os.kill(pid, signal.SIGTERM)
-                    except ProcessLookupError:
-                        pass
-            tpm_thread.join()
-            if os.path.exists(slog + ".raw"):
-                with open(slog + ".raw", "rb") as rfp:
-                    with open(slog, "wb") as wfp:
-                        rawlog = rfp.read()
-                        wfp.write(escape_ansi(rawlog))
-                        if not rawlog.endswith(b"\n"):
-                            wfp.write(b"\n")
+        if os.path.exists(serial_log + ".raw"):
+            with open(serial_log + ".raw", "rb") as rfp:
+                with open(serial_log, "wb") as wfp:
+                    rawlog = rfp.read()
+                    wfp.write(escape_ansi(rawlog))
+                    if not rawlog.endswith(b"\n"):
+                        wfp.write(b"\n")
+
+        # If the tpm subprocess is still around, give it a SIGTERM
+        if not tpm_thread.is_alive():
+            log("TPM thread already exited")
+        else:
+            tpm_pidf = path_join(run_d, "tpm", "pid")
+            tpm_pid = 0
+            if os.path.exists(tpm_pidf):
+                pidstr = read_file(tpm_pidf).strip()
+                try:
+                    tpm_pid = int(pidstr)
+                except ValueError:
+                    log("WARN: Read non-integer '%s' from tpm pidfile %s" %
+                        (pidstr, tpm_pidf))
+            else:
+                log("WARN: TPM Pidfile %s did not exist" % (tpm_pidf))
+
+            if tpm_pid != 0:
+                log("sending SIGTERM to TPM pid %d" % tpm_pid)
+                try:
+                    os.kill(tpm_pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    log("TPM pid %d did not exist" % tpm_pid)
+
+        tpm_thread.join()
+
+        if ret.rc != 0:
+            raise SubpError(ret)
 
     def cleanup(self):
         if self.cleanup_workdir:
@@ -736,6 +787,7 @@ class TestResult:
         self.serial = read_file(path_join(rdir, "serial.log"))
         self._kcmdline = self._unset
         self._is_rejected = self._unset
+        self.execution_result = read_file(path_join(rdir, "execution-result")).rstrip()
 
     def serial_raw(self):
         with open(path_join(self.rdir, "serial.log.raw"), "rb") as fp:
@@ -780,6 +832,12 @@ class Validator:
         name = tdata["name"]
         result = TestResult(path_join(self.results_d, name))
         errors = {}
+        if result.execution_result != TEST_EXECUTED:
+            etype = result.execution_result.split()[0].rstrip(":")
+            if etype == "":
+                etype = "NORESULT"
+            errors["execution"] = etype
+
         for ast in tdata["assert"]:
             try:
                 self._check(ast, tdata, result)
