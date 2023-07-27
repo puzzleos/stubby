@@ -409,6 +409,9 @@ def _add_run_args(s):
         (("--ovmf-insecure-vars",),
          {"action": "store",
           "help": ("ovmf-vars for insecure boot. [<inputs>/ovmf-insecure-vars.fd]")}),
+        (("--timeout",),
+          {"action": "store", "type": float, "default": 120.0,
+           "help": "time in seconds to allow for boot operation to complete"}),
         (("--num-threads",),
           {"action": "store", "type":  int, "default": multiprocessing.cpu_count(),
            "help": "number of parallel qemu processes to run"}),
@@ -545,6 +548,7 @@ class Runner:
             self.workdir = os.path.abspath(workdir)
             ensure_dir(self.workdir)
 
+        self.timeout = cliargs.timeout
         self.testinfo = load_test_data(cliargs.testdata)
         errors = _check_run_args(cliargs)
         if len(errors) != 0:
@@ -723,7 +727,7 @@ class Runner:
                 " ".join(cmd_inter) + "\n" +
                 "r=$?\n" + "wait\n" + "exit $r\n")
 
-        timeout = 120
+        timeout = self.timeout
 
         tpm_thread = threading.Thread(
             target=subp, args=(tpm_cmd,), daemon=True,
