@@ -592,7 +592,7 @@ class Runner:
         # github actions do not support kvm.
         # https://github.com/actions/runner-images/issues/183
         self.kvm = get_env_boolean("KVM", True)
-        self.num_threads = max(cliargs.num_threads, len(self.tests))
+        self.num_threads = min(cliargs.num_threads, len(self.tests))
 
     def _to_workd(self, fpath, name):
         newpath = path_join(self.workdir, name)
