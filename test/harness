@@ -651,9 +651,10 @@ class Runner:
                 result = "TIMEOUT: " + str(e)
             else:
                 result = "SUBPROCESS: " + str(e)
-            raise
+                raise
         except Exception as e:
             result = "EXCEPTION: " + str(e)
+            # re-raise the unexpected exception
             raise
         finally:
             write_file(path_join(results_d, "execution-result"), result + "\n")
