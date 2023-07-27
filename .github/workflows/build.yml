@@ -44,7 +44,6 @@ jobs:
         run: |
           make test
       - name: Boot Test
-        if: '!cancelled()'
         run: |
           fails=""
           for m in nvram efi-shell; do
@@ -60,6 +59,7 @@ jobs:
           exit 0
 
       - name: Upload Test Results
+        if: '!cancelled()'
         uses: actions/upload-artifact@v3
         with:
           if-no-files-found: error
