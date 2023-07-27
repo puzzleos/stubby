@@ -274,9 +274,9 @@ def subp(cmd, capture=True, data=None, rcs=(0,), timeout=None, ksignal=signal.SI
                 sp.send_signal(ksignal)
                 thread.join(5)
                 if thread.is_alive():
-                    print("%s didn't die on %s, sending SIGTERM." %
+                    print("%s didn't die on %s, sending SIGKILL." %
                           (cmd[0], ksignal))
-                    sp.send_signal(signal.SIGTERM)
+                    sp.send_signal(signal.SIGKILL)
                     thread.join()
 
         if result.exception is None:
