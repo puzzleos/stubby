@@ -52,6 +52,7 @@ jobs:
             KVM=false ./test/harness run "--boot-mode=$m" \
               --inputs=./test-inputs "--results=./test-results/$m" \
               --sbat=sbat.csv --stubby=stubby.efi \
+              --num-threads=4 --timeout=120 \
               test/tests.yaml || fails="$fails $m"
           done
 
