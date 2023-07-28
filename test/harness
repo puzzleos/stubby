@@ -14,6 +14,7 @@ import subprocess
 import sys
 import threading
 import tempfile
+import textwrap
 import time
 import yaml
 
@@ -790,6 +791,7 @@ class Runner:
         rel_ocode_src = path_join("..", os.path.basename(ocode_src))
         rel_esp = os.path.basename(esp)
 
+        tpmd = "./tpm"
         cmd_base = [
             "qemu-system-x86_64",
             "-M", "q35,smm=on" + (",accel=kvm" if self.kvm else ""),
@@ -804,7 +806,7 @@ class Runner:
             "-drive", f"if=pflash,format=raw,file={rel_ovars},snapshot=on",
             "-drive", f"file={rel_esp},id=disk00,if=none,format=raw,index=0,snapshot=on",
             "-device", "virtio-blk,drive=disk00,serial=esp-image",
-            "-chardev", "socket,id=chrtpm,path=./tpm/socket",
+            "-chardev", "socket,id=chrtpm,path=" + path_join(tpmd, "socket"),
             "-tpmdev", "emulator,id=tpm0,chardev=chrtpm",
             "-device", "tpm-tis,tpmdev=tpm0"]
 
@@ -813,12 +815,23 @@ class Runner:
              "-vnc", "none",
         ]
 
+        bootscript = textwrap.dedent("""\
+            #!/bin/sh
+            mkdir -p {tpmd}
+            rm -f {tpmd}/socket
+            {tpmcmd} &
+            while ! [ -e "{tpmd}/socket" ]; do sleep .1; done
+            {qemucmd}
+            r=$?
+            wait
+            exit $r
+            """)
+
         write_file(path_join(run_d, "boot"),
-                "#!/bin/sh\n" +
-                "mkdir -p tpm\n" +
-                " ".join(swtpm2("./tpm").cmd()) + " &\n" +
-                " ".join(cmd_base + ["-serial", "mon:stdio"]) + "\n"
-                "r=$?\n" + "wait\n" + "exit $r\n")
+            bootscript.format(
+                tpmd=tpmd,
+                tpmcmd=shell_quote(swtpm2(tpmd).cmd()),
+                qemucmd=shell_quote(cmd_base + ["-serial", "mon:stdio"])))
 
         timeout = self.timeout
 
