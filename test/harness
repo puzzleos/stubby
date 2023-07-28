@@ -611,18 +611,21 @@ class swtpm2:
             time.sleep(.1)
 
 
-    def stop(self):
+    def stop(self, sig=signal.SIGTERM, delay=None):
+        if delay is None:
+            delay = self.sigterm_timeout
+
         if self.runthread is None:
             logging.debug("Called stop, but no runthread")
             return
         if self.runthread.is_alive():
             if self.sp:
-                self.sp.send_signal(signal.SIGTERM)
-            self.runthread.join(self.sigterm_timeout)
+                self.sp.send_signal(sig)
+            self.runthread.join(delay)
             if self.runthread.is_alive():
                 logging.debug(
-                    "swtpm process did not exit within %d seconds of SIGTERM"
-                    ", sending SIGKILL", self.sigterm_timeout)
+                    "swtpm process did not exit within %d seconds after %s"
+                    ", sending SIGKILL", delay, sig.NAME)
                 if self.sp:
                     self.sp.send_signal(signal.SIGKILL)
                 self.runthread.join()
