@@ -741,13 +741,13 @@ class Runner:
         ensure_dir(results_d)
 
         rlogfp = open(path_join(results_d, "run.log"), "w")
+        start = time.time()
         def runlog(msg):
-            rlogfp.write(msg + "\n")
+            rlogfp.write("[%7.3f] " % (time.time() - start) + msg + "\n")
             rlogfp.flush()
 
         qemu_log = path_join(results_d, "qemu.log")
         serial_log = path_join(results_d, "serial.log")
-        start = time.time()
         print(f"Starting {name} in {run_d}\n qemu_log: {qemu_log}\n serial: {serial_log}.raw")
 
         try:
@@ -771,6 +771,7 @@ class Runner:
     def _run(self, testdata, run_d, results_d, qemu_log, serial_log, log):
         esp = path_join(run_d, "esp.raw")
 
+        log("generating esp")
         gen_esp(
             esp, run_d=run_d, mode=self.boot_mode,
             kernel=self.kernel, initrd=self.initrd,
@@ -843,7 +844,7 @@ class Runner:
         log("starting tpm")
         tpm.start()
 
-        log("started tpm, starting qemu")
+        log("tpm ready, starting qemu")
         with open(qemu_log, "wb") as qfp:
             qfp.write(b"# " + b" ".join([s.encode("utf-8") for s in cmd]) + b"\n")
             qfp.flush()
@@ -866,6 +867,7 @@ class Runner:
             logging.warn("TPM errored: %s", tpm.result)
             log("%s" % tpm.result)
 
+        log("finished")
         if ret.rc != 0:
             raise SubpError(ret)
 
