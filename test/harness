@@ -182,7 +182,7 @@ class SubpResult():
     def __str__(self):
         def indent(name, data):
             if data is None:
-                return "{name}: {data}"
+                return f"{name}:"
 
             if hasattr(data, 'decode'):
                 data = data.decode('utf-8', errors='ignore')
