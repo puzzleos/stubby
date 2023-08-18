@@ -12,7 +12,7 @@ EOF
 info() {
     echo "release: $REL"
     echo "packages:"
-    for p in ovmf shim-signed ; do
+    for p in ovmf shim-signed qemu-system-arm qemu-efi-aarch64 ; do
         v=$(dpkg-query --show --showformat='${Version}' "$p") ||
             fail "failed to get version for $p"
         echo "  $p: \"$v\""
@@ -39,7 +39,7 @@ if [ "$install" = "true" ]; then
     apt-get update --quiet || fail "apt-get update failed."
     apt-get install --quiet \
         --assume-yes --no-install-recommends \
-        ovmf shim-signed ||
+        ovmf shim-signed qemu-system-arm qemu-efi-aarch64 ||
         fail "failed install deps"
 else
     echo "skipping install"
@@ -53,13 +53,17 @@ set -- "$@" \
    "signing.key|link:PkKek-1-snakeoil.key" \
    "signing.password|text:snakeoil"
 
-bd=/usr/share/OVMF
+ovmfbd=/usr/share/OVMF
+aavmfbd=/usr/share/AAVMF
+
 case "$REL" in
     jammy)
         set -- "$@" \
-            "$bd/OVMF_VARS_4M.fd" \
-            "$bd/OVMF_CODE_4M.secboot.fd" \
-            "$bd/OVMF_VARS_4M.snakeoil.fd" \
+            "$ovmfbd/OVMF_VARS_4M.fd" \
+            "$ovmfbd/OVMF_CODE_4M.secboot.fd" \
+            "$ovmfbd/OVMF_VARS_4M.snakeoil.fd" \
+            "$aavmfbd/AAVMF_VARS.fd" \
+            "$aavmfbd/AAVMF_CODE.ms.fd" \
             "ovmf-insecure-code.fd|link:OVMF_CODE_4M.secboot.fd" \
             "ovmf-insecure-vars.fd|link:OVMF_VARS_4M.fd" \
             "ovmf-secure-code.fd|link:OVMF_CODE_4M.secboot.fd" \
@@ -67,9 +71,11 @@ case "$REL" in
         ;;
     focal)
         set -- "$@" \
-            "$bd/OVMF_VARS.fd" \
-            "$bd/OVMF_CODE.secboot.fd" \
-            "$bd/OVMF_VARS.snakeoil.fd" \
+            "$ovmfbd/OVMF_VARS.fd" \
+            "$ovmfbd/OVMF_CODE.secboot.fd" \
+            "$ovmfbd/OVMF_VARS.snakeoil.fd" \
+            "$aavmfbd/AAVMF_VARS.fd" \
+            "$aavmfbd/AAVMF_CODE.ms.fd" \
             "ovmf-insecure-code.fd|link:OVMF_CODE.secboot.fd" \
             "ovmf-insecure-vars.fd|link:OVMF_VARS.fd" \
             "ovmf-secure-code.fd|link:OVMF_CODE.secboot.fd" \

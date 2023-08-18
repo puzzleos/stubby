@@ -3,7 +3,7 @@
 set -o pipefail
 TEMP_D=""
 CIRROS_VERSION=${CIRROS_VERSION:-0.6.0}
-CIRROS_ARCH=${CIRROS_ARCH:-x86_64}
+CIRROS_ARCH=$(uname -m)
 CIRROS_MIRROR="http://download.cirros-cloud.net/"
 
 Usage() {
