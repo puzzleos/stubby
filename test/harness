@@ -291,11 +291,11 @@ def _check_run_args(cliargs):
         ("stubby", "stubby.efi", None),
         ("sbat", "sbat.csv", None),
         ("shim", "shim.efi",
-            lambda: first_file("usr/lib/shim/shimx64.efi", "/usr/lib/shim/shimaa64.efi",)),
+            lambda: first_file("/usr/lib/shim/shimx64.efi", "/usr/lib/shim/shimaa64.efi",)),
         ("signing_key", "signing.key",
-            lambda: first_file("/usr/share/qemu-efi-aarch64/PkKek-1-snakeoil.key")),
+            lambda: first_file("/usr/share/ovmf/PkKek-1-snakeoil.key", "/usr/share/qemu-efi-aarch64/PkKek-1-snakeoil.key")),
         ("signing_cert", "signing.pem",
-            lambda: first_file("/usr/share/qemu-efi-aarch64/PkKek-1-snakeoil.pem")),
+            lambda: first_file("/usr/share/ovmf/PkKek-1-snakeoil.pem", "/usr/share/qemu-efi-aarch64/PkKek-1-snakeoil.pem")),
         ("ovmf_secure_code", "ovmf-secure-code.fd",
             lambda: first_file(
                 "/usr/share/OVMF/OVMF_CODE_4M.snakeoil.fd",
@@ -358,9 +358,14 @@ def _check_run_args(cliargs):
         errors.append("did not find value for " + fname)
 
     # for these paths, we know passwords.
-    known_passwords = {
-        "/usr/share/qemu-efi-aarch64/PkKek-1-snakeoil.key": "snakeoil",
-    }
+    if platform.machine() == "aarch64":
+        known_passwords = {
+            "/usr/share/qemu-efi-aarch64/PkKek-1-snakeoil.key": "snakeoil",
+        }
+    elif (platform.machine() == "x86_64" or platform.machine() == "amd64"):
+        known_passwords = {
+            "/usr/share/ovmf/PkKek-1-snakeoil.key": "snakeoil",
+        }
     # signing_pass is either a file in <idir>/signing.password or password as a string.
     if cliargs.signing_pass is None:
         if idir is not None:
@@ -861,7 +866,7 @@ class Runner:
                 "-chardev", "socket,id=chrtpm,path=" + path_join(tpmd, "socket"),
                 "-tpmdev", "emulator,id=tpm0,chardev=chrtpm",
                 "-device", "tpm-tis-device,tpmdev=tpm0"]
-        elif (platform.machine() == "x86_64" or platform.machine() == "x86_64"):
+        elif (platform.machine() == "x86_64" or platform.machine() == "amd64"):
             cmd_base = [
             "qemu-system-x86_64",
             "-M", "q35,smm=on" + (",accel=kvm" if self.kvm else ""),
