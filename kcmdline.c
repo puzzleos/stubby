@@ -112,6 +112,17 @@ out:
 // produce the combined command line from builtin and runtime portions.
 // string lengths builtin_len and runtime_len should not include the terminating null
 // (as returned by strlen).
+// return values:
+//   EFI_SUCCESS:
+//     - builtin command line is valid AND
+//       ( insecureboot || (secureboot and allowed runtime) )
+//   EFI_OUT_OF_RESOURCES: AllocatePool failed.
+//   EFI_INVALID_PARAMETER:
+//     - builtin cmdline is invalid
+//     - runtime parameters given to non-empty builtin without marker.
+//   EFI_SECURITY_VIOLATION:
+//     - secureboot and runtime is not allowed
+//
 EFI_STATUS get_cmdline(
 		BOOLEAN secure,
 		CONST CHAR8 *builtin, UINTN builtin_len,
