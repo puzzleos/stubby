@@ -68,8 +68,8 @@ def booted_expected_cli(_name, tdata, result):
     kcmdline = result.kernel_cmdline()
     if kcmdline != tdata["expected"]:
         raise TestError("\n".join([
-            "kernel command line differed from runtime",
-            " expected: '" + tdata["runtime"] + "'",
+            "kernel command line differed from expected",
+            " expected: '" + tdata["expected"] + "'",
             " found   : '" + kcmdline + "'",
             ]) + "\n")
 
@@ -470,6 +470,7 @@ def gen_esp(esp, run_d, mode, kernel, initrd, shim, stubefi, sbat, signing_key, 
 
     files = [
         f"{signed_kernel}:kernel.efi",
+        f"{signed_kernel}:grubx64.efi",
         f"{startup_nsh}:startup.nsh",
     ]
     if shim:

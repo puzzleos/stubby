@@ -19,14 +19,14 @@ typedef struct {
 
 TestData tests[] = {
 	{EFI_SUCCESS, "console=ttyS0"},
-	{EFI_SUCCESS, ""},
-	{EFI_SUCCESS, "   "},
 	{EFI_SUCCESS, "quiet"},
 	{EFI_SUCCESS, " root=atomix console=ttyS0"},
 	{EFI_SUCCESS, " root=atomix console=/dev/ttyS0 "},
 	{EFI_SUCCESS, "root=atomix console=/dev/ttyS0"},
 	{EFI_SUCCESS, "crashkernel=256M"},
 	{EFI_SUCCESS, "crashkernel=128M"},
+	{EFI_SECURITY_VIOLATION, ""},
+	{EFI_SECURITY_VIOLATION, "   "},
 	{EFI_SECURITY_VIOLATION, "crashkernel.off=128M"},
 	{EFI_SECURITY_VIOLATION, "root=atomix init=/bin/bash debug"},
 	{EFI_SECURITY_VIOLATION, "init=/bin/bash"},

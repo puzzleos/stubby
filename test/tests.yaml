@@ -11,10 +11,19 @@
 #     - denied-boot: stubby refused to boot kernel.
 #     - warned-cmdline: stubby warned that secureboot would not allow.
 tests:
-  - name: "sb-shim-allowed"
+  - name: "sb-shim-allowed-rt-only"
+    builtin: ""
     runtime: "root=atomix console=ttyS0"
+    expected: "root=atomix console=ttyS0"
     assert:
-      - booted-runtime-cli
+        - booted-runtime-cli
+
+  - name: "sb-shim-allowed-built-in-no-rt-no-marker"
+    builtin: "root=atomix console=ttyS0"
+    runtime: ""
+    expected: "root=atomix console=ttyS0"
+    assert:
+      - booted-expected-cli
 
   - name: "sb-noshim-allowed"
     runtime: "root=atomix console=ttyS0"
