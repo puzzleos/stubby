@@ -28,18 +28,18 @@ TestData tests[] = {
 		"",
 		"root=atomix console=ttyS0 verbose"},
 	// no builtin, use runtime.
-	{EFI_SUCCESS, true,
+	{EFI_INVALID_PARAMETER, true,
 		"",
 		"root=atomix verbose",
-		"root=atomix verbose"},
+		ResultNotChecked},
 	// no builtin no runtime means empty, do not boot
 	{EFI_SECURITY_VIOLATION, true,
 		"",
 		"",
-		""},
-	// insecure, no builtin, bad runtime token allows runtime
+		ResultNotChecked},
+	// insecure, built-in marker, bad runtime arg, inscure boots
 	{EFI_SECURITY_VIOLATION, false,
-		"",
+		"STUBBY_RT_CLI1",
 		"root=atomix verbose rootkit=yes",
 		"root=atomix verbose rootkit=yes"},
 	// all good secure marker at beginning
@@ -77,11 +77,11 @@ TestData tests[] = {
 		"root=atomix",
 		"console=ttyS0",
 		ResultNotChecked},
-	// no marker in insecure - just append.
-	{EFI_SUCCESS, false,
+	// no marker in insecure - runtime args requires marker even insecure
+	{EFI_INVALID_PARAMETER, false,
 		"root=atomix",
 		"console=ttyS0",
-		"root=atomix console=ttyS0"},
+		""},
 	// namespace for marker found twice in builtin secure
 	{EFI_INVALID_PARAMETER, true,
 		"root=atomix STUBBY_RT debug STUBBY_RT_CLI1 ",

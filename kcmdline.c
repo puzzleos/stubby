@@ -130,14 +130,14 @@ out:
 // (as returned by strlen).
 // return values:
 //   EFI_SUCCESS:
-//     - builtin command line is valid AND
-//       ( insecureboot || (secureboot and allowed runtime) )
+//    - builtin command line is valid AND
+//    ( insecureboot || (secureboot and allowed runtime) )
 //   EFI_OUT_OF_RESOURCES: AllocatePool failed.
 //   EFI_INVALID_PARAMETER:
 //     - builtin cmdline is invalid
-//     - runtime parameters given to non-empty builtin without marker.
+//	 - runtime parameters given to non-empty builtin without marker.
 //   EFI_SECURITY_VIOLATION:
-//     - secureboot and runtime is not allowed
+//	 - secureboot and runtime is not allowed
 //
 EFI_STATUS get_cmdline(
 		BOOLEAN secure,
@@ -189,13 +189,16 @@ EFI_STATUS get_cmdline(
 	 * |------|---------|---------|--------------------|----------|--------|
 	 * |  a   |  True   | False   | False              | insecure | ok     |
 	 * |  b   |  True   | False   | True               | insecure | ok     |
-	 * |  c   |  True   | True    | False              | insecure | ok     |
+	 * |  c   |  True   | True    | False              | insecure | fail   |
 	 * |  d   |  True   | True    | True               | insecure | ok     |
 	 * |--------------- ---------------------------------------------------|
 	 * |  e   |  True   | False   | False              |   secure | ok     |
 	 * |  f   |  True   | False   | True               |   secure | ok     |
 	 * |  g   |  True   | True    | False              |   secure | fail   |
 	 * |  h   |  True   | True    | True               |   secure | ok     |
+	 * |--------------- ---------------------------------------------------|
+	 * |  j   |  False  | True    | False              | insecure | fail   |
+	 * |  k   |  False  | True    | False              |   secure | fail   |
 	 * `-------------------------------------------------------------------'
 	 */
 
@@ -205,25 +208,15 @@ EFI_STATUS get_cmdline(
 		if (p == NULL) {
 			// cases: a, c, e, g
 			if (runtime_len != 0) {
-				// cases: c, g
-				if (secure) {
-					// cases: g
-					status = EFI_INVALID_PARAMETER;
-					UnicodeSPrint(errbuf, errbuf_buflen,
-							L"runtime arguments cannot be given to non-empty builtin without marker");
-					goto out;
-				}
-				// cases: c handled in common path below
+				// cases: c, g -- cannot use runtime without a built-in marker
+				status = EFI_INVALID_PARAMETER;
+				UnicodeSPrint(errbuf, errbuf_buflen,
+					L"runtime arguments cannot be given to non-empty builtin without marker");
+				goto out;
 			}
-			// cases: a, c, e
+			// cases: a, e
 			CopyMem(part1, builtin, builtin_len);
 			part1_len = builtin_len;
-			// make space for joining builtin and runtime if we have both
-			if (runtime_len != 0) {
-				part1_len = builtin_len + 1;
-				*(part1 + part1_len - 1) = ' ';
-				*(part1 + part1_len) = '\0';
-			}
 		} else {
 			// cases: b, d, f, h
 			// builtin has a marker, check that there is only one.
@@ -247,6 +240,14 @@ EFI_STATUS get_cmdline(
 			*(part1 + part1_len) = '\0';
 			CopyMem(part2, p + marker_len, part2_len);
 			*(part2 + part2_len) = '\0';
+		}
+	} else {
+		// cases: j, k
+		if (runtime_len != 0) {
+			status = EFI_INVALID_PARAMETER;
+			UnicodeSPrint(errbuf, errbuf_buflen,
+				L"runtime arguments cannot be given to non-empty builtin without marker");
+			goto out;
 		}
 	}
 
@@ -384,6 +385,9 @@ EFI_STATUS get_cmdline_with_print(
 			err = EFI_SUCCESS;
 		}
 	}
+    if (err == EFI_INVALID_PARAMETER) {
+        Print(L"Custom kernel command line rejected\n");
+    }
 
 out:
 	if (errmsg != NULL) {
