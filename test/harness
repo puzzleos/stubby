@@ -19,6 +19,7 @@ import textwrap
 import time
 import traceback
 import yaml
+import platform
 
 import prettytable
 
@@ -30,6 +31,7 @@ TEST_EXECUTED = "executed"
 
 TMP_PREFIX = "stubbytest."
 STARTUP_NSH_UEFI_SHELL = r"""setvar SecureBoot
+setvar SHIM_VERBOSE -guid 605dab50-e046-4300-abb6-3dd810dd8b23 -bs =1
 fs0:
 cd fs0:\efi\boot
 launch.nsh
@@ -37,6 +39,7 @@ reset -s "exited with %lasterror%"
 """
 
 STARTUP_NSH_NVRAM = r"""setvar SecureBoot
+setvar SHIM_VERBOSE -guid 605dab50-e046-4300-abb6-3dd810dd8b23 -bs =1
 fs0:
 cd fs0:\efi\boot
 bcfg boot rm 00
@@ -292,11 +295,11 @@ def _check_run_args(cliargs):
         ("stubby", "stubby.efi", None),
         ("sbat", "sbat.csv", None),
         ("shim", "shim.efi",
-            lambda: first_file("/usr/lib/shim/shimx64.efi")),
+            lambda: first_file("/usr/lib/shim/shimx64.efi", "/usr/lib/shim/shimaa64.efi",)),
         ("signing_key", "signing.key",
-            lambda: first_file("/usr/share/ovmf/PkKek-1-snakeoil.key")),
+            lambda: first_file("/usr/share/ovmf/PkKek-1-snakeoil.key", "/usr/share/qemu-efi-aarch64/PkKek-1-snakeoil.key")),
         ("signing_cert", "signing.pem",
-            lambda: first_file("/usr/share/ovmf/PkKek-1-snakeoil.pem")),
+            lambda: first_file("/usr/share/ovmf/PkKek-1-snakeoil.pem", "/usr/share/qemu-efi-aarch64/PkKek-1-snakeoil.pem")),
         ("ovmf_secure_code", "ovmf-secure-code.fd",
             lambda: first_file(
                 "/usr/share/OVMF/OVMF_CODE_4M.snakeoil.fd",
@@ -316,6 +319,24 @@ def _check_run_args(cliargs):
             lambda: first_file(
                 "/usr/share/OVMF/OVMF_VARS_4M.fd",
                 "/usr/share/OVMF/OVMF_VARS.fd",
+                )),
+        ("aavmf_secure_code", "aavmf-secure-code.fd", 
+            lambda: first_file(
+                "/usr/share/AAVMF/AAVMF_CODE.snakeoil.fd",
+                "/usr/share/AAVMF/AAVMF_CODE.ms.fd",
+                )),
+        ("aavmf_secure_vars", "aavmf-secure-vars.fd", 
+            lambda: first_file(
+                "/usr/share/AAVMF/AAVMF_VARS.snakeoil.fd",
+                "/usr/share/AAVMF/AAVMF_VARS.ms.fd",
+                )),
+        ("aavmf_insecure_vars", "aavmf-insecure-vars.fd", 
+            lambda: first_file(
+                "/usr/share/AAVMF/AAVMF_VARS.fd"
+                )),
+        ("aavmf_insecure_code", "aavmf-insecure-code.fd",
+            lambda: first_file(
+                "/usr/share/AAVMF/AAVMF_CODE.fd",
                 )),
     )
 
@@ -341,9 +362,14 @@ def _check_run_args(cliargs):
         errors.append("did not find value for " + fname)
 
     # for these paths, we know passwords.
-    known_passwords = {
-        "/usr/share/ovmf/PkKek-1-snakeoil.key": "snakeoil",
-    }
+    if platform.machine() == "aarch64":
+        known_passwords = {
+            "/usr/share/qemu-efi-aarch64/PkKek-1-snakeoil.key": "snakeoil",
+        }
+    elif (platform.machine() == "x86_64" or platform.machine() == "amd64"):
+        known_passwords = {
+            "/usr/share/ovmf/PkKek-1-snakeoil.key": "snakeoil",
+        }
     # signing_pass is either a file in <idir>/signing.password or password as a string.
     if cliargs.signing_pass is None:
         if idir is not None:
@@ -404,6 +430,18 @@ def _add_run_args(s):
         (("--work-dir",),
           {"action": "store", "default": None,
            "help": "Use provided dir for working directory"}),
+        (("--aavmf-secure-code",),
+         {"action": "store", "help": "aavmf-secure-code [<inputs>/aavmf-secure-code.fd]"}),
+        (("--aavmf-insecure-code",),
+         {"action": "store", "help": "aavmf-insecure-code [<inputs>/aavmf-insecure-code.fd]"}),
+        (("--aavmf-secure-vars",),
+         {"action": "store",
+          "help": (
+              "aavmf-vars for secure boot. Must allow execution of code signed"
+              "by provided signing-key [<inputs>/aavmf-secure-vars.fd]")}),
+        (("--aavmf-insecure-vars",),
+         {"action": "store",
+          "help": ("aavmf-vars for insecure boot. [<inputs>/aavmf-insecure-vars.fd]")}),
     )
 
     for args, kwargs in runargs:
@@ -676,6 +714,14 @@ class Runner:
                 cliargs.ovmf_secure_code, "ovmf-secure-code.fd")
         self.ovmf_insecure_code = self._to_workd(
                 cliargs.ovmf_insecure_code, "ovmf-insecure-code.fd")
+        self.aavmf_secure_vars = self._to_workd(
+                cliargs.aavmf_secure_vars, "aavmf-secure-vars.fd")
+        self.aavmf_insecure_vars = self._to_workd(
+                cliargs.aavmf_insecure_vars, "aavmf-insecure-vars.fd")
+        self.aavmf_secure_code = self._to_workd(
+                cliargs.aavmf_secure_code, "aavmf-secure-code.fd")
+        self.aavmf_insecure_code = self._to_workd(
+                cliargs.aavmf_insecure_code, "aavmf-insecure-code.fd")
 
         self.signing_key_in = cliargs.signing_key
         self.signing_cert = self._to_workd(cliargs.signing_cert, "signing.pem")
@@ -785,6 +831,17 @@ class Runner:
             signing_key=self.signing_key, signing_cert=self.signing_cert,
             cmdline_builtin=testdata["builtin"], runtime_cli=testdata["runtime"])
 
+        acode_src = self.aavmf_secure_code
+        avars_src = self.aavmf_secure_vars
+        avars = path_join(run_d, "aavmf-vars.fd")
+        if not testdata["sb"]:
+            acode_src = self.aavmf_insecure_code
+            avars_src = self.aavmf_insecure_vars
+
+        shutil.copyfile(avars_src, avars)
+        rel_avars = os.path.basename(avars)
+        rel_acode_src = path_join("..", os.path.basename(acode_src))
+
         ocode_src = self.ovmf_secure_code
         ovars_src = self.ovmf_secure_vars
         ovars = path_join(run_d, "ovmf-vars.fd")
@@ -798,7 +855,24 @@ class Runner:
         rel_esp = os.path.basename(esp)
 
         tpmd = "./tpm"
-        cmd_base = [
+        if platform.machine() == "aarch64":
+            cmd_base = [
+                "qemu-system-aarch64",
+                "-M", "virt" + (",accel=kvm" if self.kvm else ""),
+                "-cpu", "host",
+                "-m", "4096",
+                "-nic", "none",
+                "-drive", f"if=pflash,format=raw,file={rel_acode_src},readonly=on",
+                # snapshot=on {rel_ovars} so debug with 'boot' will take the full path
+                # rather than shortcutting out the setting of nvram in MODE_NVRAM
+                "-drive", f"if=pflash,format=raw,file={rel_avars},snapshot=on",
+                "-drive", f"file={rel_esp},id=disk00,if=none,format=raw,index=0,snapshot=on",
+                "-device", "virtio-blk,drive=disk00,serial=esp-image",
+                "-chardev", "socket,id=chrtpm,path=" + path_join(tpmd, "socket"),
+                "-tpmdev", "emulator,id=tpm0,chardev=chrtpm",
+                "-device", "tpm-tis-device,tpmdev=tpm0"]
+        elif (platform.machine() == "x86_64" or platform.machine() == "amd64"):
+            cmd_base = [
             "qemu-system-x86_64",
             "-M", "q35,smm=on" + (",accel=kvm" if self.kvm else ""),
             "-m", "256",
