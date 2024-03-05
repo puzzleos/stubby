@@ -22,7 +22,8 @@ jobs:
           sudo apt-get update --quiet
           sudo apt-get install --quiet --assume-yes --no-install-recommends gnu-efi build-essential
           sudo apt-get install --quiet --assume-yes --no-install-recommends \
-              dosfstools mtools ovmf python3-minimal qemu-system-x86 qemu-utils shim-signed swtpm
+              dosfstools mtools ovmf python3-minimal python3-prettytable \
+              qemu-system-x86 qemu-utils shim-signed swtpm
       - name: Collect Inputs
         run: |
           mkdir ./test-inputs/
@@ -51,7 +52,8 @@ jobs:
             KVM=false ./test/harness run "--boot-mode=$m" \
               --inputs=./test-inputs "--results=./test-results/$m" \
               --sbat=sbat.csv --stubby=stubby.efi \
-              --num-threads=4 --timeout=120 \
+              --num-threads=$(grep -c processor /proc/cpuinfo) \
+              --timeout=120 \
               test/tests.yaml || fails="$fails $m"
           done
 

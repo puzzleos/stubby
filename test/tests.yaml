@@ -10,34 +10,122 @@
 #     - booted-expected-cli: the kernel booted and had the provided 'expected'.
 #     - denied-boot: stubby refused to boot kernel.
 #     - warned-cmdline: stubby warned that secureboot would not allow.
+#
+# notes:
+#   sb-shim -> secureboot=true  shim=yes
+#   ib-shim -> secureboot=false shim=yes
+#   no-shim -> secureboot=false shim=no
+
 tests:
-  - name: "sb-shim-allowed"
+  - name: "sb-shim-denied-rt-only"
+    builtin: ""
     runtime: "root=atomix console=ttyS0"
+    expected: ""
     assert:
-      - booted-runtime-cli
+        - denied-boot
 
-  - name: "sb-noshim-allowed"
+  - name: "ib-shim-denied-rt-only"
+    builtin: ""
     runtime: "root=atomix console=ttyS0"
+    expected: ""
     assert:
-      - booted-runtime-cli
+        - denied-boot
 
-  - name: "ib-shim-allowed"
-    runtime: "root=atomix console=ttyS0"
+  - name: "sb-shim-allowed-built-in-no-rt-no-marker"
+    builtin: "root=atomix console=ttyS0"
+    runtime: ""
+    expected: "root=atomix console=ttyS0"
     assert:
-      - booted-runtime-cli
+      - booted-expected-cli
 
-  - name: "ib-noshim-allowed"
-    runtime: "root=atomix console=ttyS0"
+  - name: "ib-shim-allowed-built-in-no-rt-no-marker"
+    builtin: "root=atomix console=ttyS0"
+    runtime: ""
+    expected: "root=atomix console=ttyS0"
     assert:
-      - booted-runtime-cli
+      - booted-expected-cli
 
-  - name: "sb-shim-denied"
-    runtime: "root=atomix console=ttyS0 rootkit=yes"
+  - name: "sb-shim-denied-built-in-rt-no-marker"
+    builtin: "root=atomix console=ttyS0"
+    runtime: "crashkernel=256M"
+    expected: ""
     assert:
       - denied-boot
 
-  - name: "ib-shim-denied"
+  - name: "ib-shim-denied-built-in-rt-no-marker"
+    builtin: "root=atomix console=ttyS0"
+    runtime: "crashkernel=256M"
+    expected: ""
+    assert:
+      - denied-boot
+
+  - name: "sb-shim-denied-empty-built-in-rt"
+    builtin: ""
+    runtime: "root=atomix console=ttyS0"
+    expected: ""
+    assert:
+      - denied-boot
+
+  - name: "ib-shim-denied-empty-built-in-rt"
+    builtin: ""
+    runtime: "root=atomix console=ttyS0"
+    expected: ""
+    assert:
+      - denied-boot
+
+  - name: "sb-shim-allowed-built-in-rt-has-marker"
+    builtin: "STUBBY_RT_CLI1"
+    runtime: "root=atomix verbose console=ttyS0"
+    expected: ""
+    assert:
+      - booted-runtime-cli
+
+  - name: "ib-shim-allowed-built-in-rt-has-marker"
+    builtin: "STUBBY_RT_CLI1"
+    runtime: "root=atomix verbose console=ttyS0"
+    expected: ""
+    assert:
+      - booted-runtime-cli
+
+  - name: "sb-noshim-denied-no-marker"
+    builtin: ""
+    runtime: "root=atomix console=ttyS0"
+    expected: ""
+    assert:
+      - denied-boot
+
+  - name: "ib-noshim-denied-no-marker"
+    builtin: ""
+    runtime: "root=atomix console=ttyS0"
+    expected: ""
+    assert:
+      - denied-boot
+
+  - name: "sb-noshim-allowed-with-marker"
+    builtin: "STUBBY_RT_CLI1"
+    runtime: "root=atomix console=ttyS0"
+    expected: "root=atomix console=ttyS0"
+    assert:
+      - booted-expected-cli
+
+  - name: "ib-noshim-denied-with-marker"
+    builtin: ""
+    runtime: "root=atomix console=ttyS0"
+    expected: ""
+    assert:
+      - denied-boot
+
+  - name: "sb-shim-denied-builtin-marker-bad-args"
+    builtin: "STUBBY_RT_CLI1"
     runtime: "root=atomix console=ttyS0 rootkit=yes"
+    expected: ""
+    assert:
+      - denied-boot
+
+  - name: "ib-shim-warned-builtin-marker-bad-args"
+    builtin: "STUBBY_RT_CLI1"
+    runtime: "root=atomix console=ttyS0 rootkit=yes"
+    expected: ""
     assert:
       - warned-cmdline
       - booted-runtime-cli

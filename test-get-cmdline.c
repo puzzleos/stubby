@@ -22,19 +22,24 @@ TestData tests[] = {
 		"root=atomix STUBBY_RT_CLI1 more",
 		"console=ttyS0",
 		"root=atomix console=ttyS0 more"},
-	// no builtin, use runtime.
+	// builtin, not runtime, no token
 	{EFI_SUCCESS, true,
+		"root=atomix console=ttyS0 verbose",
+		"",
+		"root=atomix console=ttyS0 verbose"},
+	// no builtin, use runtime.
+	{EFI_INVALID_PARAMETER, true,
 		"",
 		"root=atomix verbose",
-		"root=atomix verbose"},
-	// no builtin no runtime means empty.
-	{EFI_SUCCESS, true,
+		ResultNotChecked},
+	// no builtin no runtime means empty, do not boot
+	{EFI_SECURITY_VIOLATION, true,
 		"",
 		"",
-		""},
-	// insecure, no builtin, bad runtime token allows runtime
+		ResultNotChecked},
+	// insecure, built-in marker, bad runtime arg, inscure boots
 	{EFI_SECURITY_VIOLATION, false,
-		"",
+		"STUBBY_RT_CLI1",
 		"root=atomix verbose rootkit=yes",
 		"root=atomix verbose rootkit=yes"},
 	// all good secure marker at beginning
@@ -62,7 +67,7 @@ TestData tests[] = {
 		"root=atomix STUBBY_RT_CLI1 more2",
 		"console=ttyS0 more1",
 		ResultNotChecked},
-    // marker not a full token
+	// marker not a full token
 	{EFI_INVALID_PARAMETER, false,
 		"root=atomix STUBBY_RT_CLI1=abcd more",
 		"console=ttyS0",
@@ -72,30 +77,30 @@ TestData tests[] = {
 		"root=atomix",
 		"console=ttyS0",
 		ResultNotChecked},
-	// no marker in insecure - just append.
-	{EFI_SUCCESS, false,
+	// no marker in insecure - runtime args requires marker even insecure
+	{EFI_INVALID_PARAMETER, false,
 		"root=atomix",
 		"console=ttyS0",
-		"root=atomix console=ttyS0"},
+		""},
 	// namespace for marker found twice in builtin secure
 	{EFI_INVALID_PARAMETER, true,
 		"root=atomix STUBBY_RT debug STUBBY_RT_CLI1 ",
 		"console=ttyS0",
-        ResultNotChecked},
+		ResultNotChecked},
 	// namespace for marker found twice in builtin insecure
 	{EFI_INVALID_PARAMETER, false,
 		"root=atomix STUBBY_RT debug STUBBY_RT_CLI1 ",
 		"console=ttyS0",
-        ResultNotChecked},
+		ResultNotChecked},
 	// namespace appears in runtime
 	{EFI_INVALID_PARAMETER, false,
 		"root=atomix debug STUBBY_RT_CLI1",
 		"console=ttyS0 STUBBY_RT",
-        ResultNotChecked},
+		ResultNotChecked},
 };
 
 
-BOOLEAN do_get_cmdline(TestData td) {
+BOOLEAN do_get_cmdline(int testnum, TestData td) {
 	EFI_STATUS status;
 	CHAR16 *errmsg;
 	CHAR8 *found;
@@ -115,7 +120,7 @@ BOOLEAN do_get_cmdline(TestData td) {
 	StatusToString(status_exp, td.expstatus);
 
 	if (status != td.expstatus) {
-		Print(L"expected status '%ls' found '%ls'\n", status_found, status_exp);
+		Print(L"test %d: expected status '%ls' found '%ls'\n", testnum, status_found, status_exp);
 		Print(L"errmsg = %ls\n", errmsg);
 		return false;
 	}
@@ -148,11 +153,11 @@ int main()
 	int passes = 0, fails = 0;
 
 	for (int i=0; i<num; i++) {
-		if (do_get_cmdline(tests[i])) {
+		if (do_get_cmdline(i, tests[i])) {
 			passes++;
 		} else {
 			fails++;
-			Print(L"test %d FAIL\n", i);
+			Print(L"test %d: FAIL\n", i);
 		}
 	}
 

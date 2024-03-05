@@ -5,6 +5,7 @@ import functools
 import logging
 import multiprocessing
 import os.path
+import pdb
 import queue
 import re
 import shlex
@@ -16,7 +17,10 @@ import threading
 import tempfile
 import textwrap
 import time
+import traceback
 import yaml
+
+import prettytable
 
 
 MODE_NVRAM = 'nvram'
@@ -68,8 +72,8 @@ def booted_expected_cli(_name, tdata, result):
     kcmdline = result.kernel_cmdline()
     if kcmdline != tdata["expected"]:
         raise TestError("\n".join([
-            "kernel command line differed from runtime",
-            " expected: '" + tdata["runtime"] + "'",
+            "kernel command line differed from expected",
+            " expected: '" + tdata["expected"] + "'",
             " found   : '" + kcmdline + "'",
             ]) + "\n")
 
@@ -470,6 +474,7 @@ def gen_esp(esp, run_d, mode, kernel, initrd, shim, stubefi, sbat, signing_key, 
 
     files = [
         f"{signed_kernel}:kernel.efi",
+        f"{signed_kernel}:grubx64.efi",
         f"{startup_nsh}:startup.nsh",
     ]
     if shim:
@@ -914,10 +919,17 @@ class TestError(Exception):
 
 
 class Validator:
-    def __init__(self, results_d):
-        self.results_d = results_d
-        self.testinfo = load_test_data(path_join(results_d, "tests.yaml"))
+    def __init__(self, args):
+        self.args = args
+        self.results_d = args.results
+        self.testinfo = load_test_data(path_join(self.results_d, "tests.yaml"))
         self._tests = None
+        self._table = prettytable.PrettyTable()
+        columns = ["Name", "Passed", "Errors"]
+        if self.args.show_config_column:
+            columns.append("Config")
+        self._table.field_names = columns
+        self._table.align = "l"
 
     def tests(self):
         tests = {}
@@ -944,12 +956,7 @@ class Validator:
             except TestError as e:
                 errors[ast] = e
 
-        if len(errors) == 0:
-            print(f"{name}: PASS")
-        else:
-            print("%s: FAIL (%s)" % (name, ",".join(errors.keys())))
-
-        return errors
+        return len(errors) == 0, errors
 
     def validate_all(self):
         errors = {}
@@ -958,16 +965,26 @@ class Validator:
             if not os.path.isdir(trdir):
                 print(f"no results for test {name}")
                 continue
-            found = self.validate_test(tdata)
-            if found:
-                errors[name] = found
+            result, errs = self.validate_test(tdata)
+            if errs:
+                errors[name] = errs
+
+            row = [name, result, ",".join(errs.keys())]
+            if self.args.show_config_column:
+                row.append(tdata)
+            self._table.add_row(row)
 
         return errors
 
+    def print_results(self):
+        print("== Results ==")
+        print(self._table)
 
-def validate_results(results_d):
-    vdator = Validator(results_d)
+
+def validate_results(cliargs):
+    vdator = Validator(cliargs)
     errors = vdator.validate_all()
+    vdator.print_results()
     if not errors:
         return 0
 
@@ -990,14 +1007,14 @@ def main_run(cliargs):
     finally:
         runner.cleanup()
 
-    errors = validate_results(cliargs.results)
+    errors = validate_results(cliargs)
     if errors:
         return 1
     return 0
 
 
 def main_validate(args):
-    validate_results(args.results)
+    validate_results(args)
 
 
 def main():
@@ -1013,6 +1030,9 @@ def main():
     s.add_argument(
         "-r", "--results", action="store", default="./results",
         help="Write results output to dir")
+    s.add_argument(
+        "-C", "--show-config-column", action="store_true", default=False,
+        help="Display the 'Config' column in validate results")
     s.add_argument("testdata", help="The yaml formated test definition file")
     s.set_defaults(handler=main_run)
 
@@ -1034,4 +1054,11 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    ret = 0
+    try:
+        ret = main()
+    except Exception:
+        traceback.print_exc()
+        pdb.post_mortem()
+        ret = 1
+    sys.exit(ret)

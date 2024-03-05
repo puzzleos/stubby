@@ -45,7 +45,7 @@ EFI_STATUS check_cmdline(CONST CHAR8 *cmdline, UINTN cmdline_len, CHAR16 *errmsg
 	CHAR8 c = '\0';
 	CHAR8 *buf = NULL;
 	CHAR8 *tokens[MAX_TOKENS];
-	EFI_STATUS status = EFI_SUCCESS;
+	EFI_STATUS status = EFI_SECURITY_VIOLATION;
 	int i;
 	int start = -1;
 	int num_toks = 0;
@@ -56,6 +56,13 @@ EFI_STATUS check_cmdline(CONST CHAR8 *cmdline, UINTN cmdline_len, CHAR16 *errmsg
 	}
 
 	*errmsg = '\0';
+
+	if (cmdline_len == 0) {
+		UnicodeSPrint(errmsg, errmsg_len,
+			L"Empty commandline not allowed: length=0");
+		status = EFI_SECURITY_VIOLATION;
+		goto out;
+	}
 
 	CopyMem(buf, cmdline, cmdline_len);
 	buf[cmdline_len] = '\0';
@@ -94,13 +101,22 @@ EFI_STATUS check_cmdline(CONST CHAR8 *cmdline, UINTN cmdline_len, CHAR16 *errmsg
 		num_toks++;
 	}
 
+	// do not allow an empty command line
+	if (num_toks == 0) {
+		UnicodeSPrint(errmsg, errmsg_len,
+			L"Empty commandline not allowed: no tokens found");
+		status = EFI_SECURITY_VIOLATION;
+		goto out;
+	}
 	for (i=0; i < num_toks; i++) {
 		if (!is_allowed(tokens[i])) {
 			UnicodeSPrint(errmsg, errmsg_len, L"token not allowed: %a", tokens[i]);
 			status = EFI_SECURITY_VIOLATION;
+			goto out;
 		}
 	}
 
+	status = EFI_SUCCESS;
 out:
 
 	if (buf != NULL) {
@@ -114,14 +130,14 @@ out:
 // (as returned by strlen).
 // return values:
 //   EFI_SUCCESS:
-//     - builtin command line is valid AND
-//       ( insecureboot || (secureboot and allowed runtime) )
+//    - builtin command line is valid AND
+//    ( insecureboot || (secureboot and allowed runtime) )
 //   EFI_OUT_OF_RESOURCES: AllocatePool failed.
 //   EFI_INVALID_PARAMETER:
 //     - builtin cmdline is invalid
-//     - runtime parameters given to non-empty builtin without marker.
+//	 - runtime parameters given to non-empty builtin without marker.
 //   EFI_SECURITY_VIOLATION:
-//     - secureboot and runtime is not allowed
+//	 - secureboot and runtime is not allowed
 //
 EFI_STATUS get_cmdline(
 		BOOLEAN secure,
@@ -167,25 +183,42 @@ EFI_STATUS get_cmdline(
 	part1_len = 0;
 	part2_len = 0;
 
+	/*
+	 * .-------------------------------------------------------------------.
+	 * | case | builtin | runtime | builtin_has_marker | sb  mode | status |
+	 * |------|---------|---------|--------------------|----------|--------|
+	 * |  a   |  True   | False   | False              | insecure | ok     |
+	 * |  b   |  True   | False   | True               | insecure | ok     |
+	 * |  c   |  True   | True    | False              | insecure | fail   |
+	 * |  d   |  True   | True    | True               | insecure | ok     |
+	 * |--------------- ---------------------------------------------------|
+	 * |  e   |  True   | False   | False              |   secure | ok     |
+	 * |  f   |  True   | False   | True               |   secure | ok     |
+	 * |  g   |  True   | True    | False              |   secure | fail   |
+	 * |  h   |  True   | True    | True               |   secure | ok     |
+	 * |--------------- ---------------------------------------------------|
+	 * |  j   |  False  | True    | False              | insecure | fail   |
+	 * |  k   |  False  | True    | False              |   secure | fail   |
+	 * `-------------------------------------------------------------------'
+	 */
+
 	if (builtin_len != 0) {
+		// cases: a, b, c, d, e, f, g, h
 		p = strstra(builtin, marker);
 		if (p == NULL) {
-			// there was no marker in builtin cmdline
-			if (secure) {
-				if (runtime_len != 0) {
-					status = EFI_INVALID_PARAMETER;
-					UnicodeSPrint(errbuf, errbuf_buflen,
-							L"runtime arguments cannot be given to non-empty builtin without marker");
-					goto out;
-				}
-			} else {
-				// insecure and no marker. act as if marker was at end.
-				CopyMem(part1, builtin, builtin_len);
-				part1_len = builtin_len + 1;
-				*(part1 + part1_len - 1) = ' ';
-				*(part1 + part1_len) = '\0';
+			// cases: a, c, e, g
+			if (runtime_len != 0) {
+				// cases: c, g -- cannot use runtime without a built-in marker
+				status = EFI_INVALID_PARAMETER;
+				UnicodeSPrint(errbuf, errbuf_buflen,
+					L"runtime arguments cannot be given to non-empty builtin without marker");
+				goto out;
 			}
+			// cases: a, e
+			CopyMem(part1, builtin, builtin_len);
+			part1_len = builtin_len;
 		} else {
+			// cases: b, d, f, h
 			// builtin has a marker, check that there is only one.
 			if (strstra(p + marker_len, marker) != NULL) {
 				status = EFI_INVALID_PARAMETER;
@@ -208,6 +241,14 @@ EFI_STATUS get_cmdline(
 			CopyMem(part2, p + marker_len, part2_len);
 			*(part2 + part2_len) = '\0';
 		}
+	} else {
+		// cases: j, k
+		if (runtime_len != 0) {
+			status = EFI_INVALID_PARAMETER;
+			UnicodeSPrint(errbuf, errbuf_buflen,
+				L"runtime arguments cannot be given to non-empty builtin without marker");
+			goto out;
+		}
 	}
 
 	// namespace appeared in the builtin (other than marker)
@@ -224,17 +265,45 @@ EFI_STATUS get_cmdline(
 		goto out;
 	}
 
-	// Print(L"part1=%a|\npart2=%a|\nruntime=%a|\n", part1, part2, runtime);
-	status = check_cmdline(runtime, runtime_len, errbuf, errbuf_buflen);
+	/* Print(L"builtin=%a len=%d|part1=%a len=%d|\npart2=%a len=%d|\nruntime=%a len=%d|\n",
+		builtin, builtin_len, part1, part1_len, part2, part2_len, runtime, runtime_len); */
+	if (runtime_len > 0) {
+		status = check_cmdline(runtime, runtime_len, errbuf, errbuf_buflen);
 
-	// EFI_SECURITY_VIOLATION is allowed if insecure boot, so continue on.
-	if (EFI_ERROR(status)) {
-		if (status != EFI_SECURITY_VIOLATION || secure) {
-			goto out;
+		// EFI_SECURITY_VIOLATION is allowed if insecure boot, so continue on.
+		if (EFI_ERROR(status)) {
+			if (status != EFI_SECURITY_VIOLATION || secure) {
+				goto out;
+			}
+		}
+	} else {
+		// if we have don't have a runtime component, then we need to check
+		// "builtin" cmdline, but builtin may have the marker, but won't show
+		// up in the two parts that will be joined later
+		if (part1_len > 0) {
+			status = check_cmdline(part1, part1_len, errbuf, errbuf_buflen);
+
+			// EFI_SECURITY_VIOLATION is allowed if insecure boot, so continue on.
+			if (EFI_ERROR(status)) {
+				if (status != EFI_SECURITY_VIOLATION || secure) {
+					goto out;
+				}
+			}
+		}
+
+		if (part2_len > 0) {
+			status = check_cmdline(part2, part2_len, errbuf, errbuf_buflen);
+
+			// EFI_SECURITY_VIOLATION is allowed if insecure boot, so continue on.
+			if (EFI_ERROR(status)) {
+				if (status != EFI_SECURITY_VIOLATION || secure) {
+					goto out;
+				}
+			}
 		}
 	}
 
-	// At this point, part1 and part2 are set so we can just concatenate part1, runtime, part3
+	// At this point, part1 and part2 are set so we can just concatenate part1, runtime, part2
 	UINTN clen = part1_len + runtime_len + part2_len;
 	CHAR8 *cbuf;
 	cbuf = AllocatePool(clen + 1);
@@ -242,13 +311,21 @@ EFI_STATUS get_cmdline(
 		status = EFI_OUT_OF_RESOURCES;
 		goto out;
 	}
+	//Print(L"copying part1 len=%d into cbuf len=%d\n", part1_len, clen);
 	CopyMem(cbuf, part1, part1_len);
-	CopyMem(cbuf+part1_len, runtime, runtime_len);
-	CopyMem(cbuf+part1_len+runtime_len, part2, part2_len);
+
+	if (runtime_len > 0) {
+		CopyMem(cbuf+part1_len, runtime, runtime_len);
+		if (part2_len > 0) {
+			CopyMem(cbuf+part1_len+runtime_len, part2, part2_len);
+		}
+	}
 	cbuf[clen] = '\0';
 	*cmdline = cbuf;
 	*cmdline_len = clen;
 
+	//Print(L"finalized cmdline=%a len=%d\n", cbuf, clen);
+	//FIXME: should we check_cmdline on the final composition?
 out:
 	if (errbuf != NULL && errbuf[0] == '\0') {
 		FreePool(errbuf);
@@ -308,6 +385,9 @@ EFI_STATUS get_cmdline_with_print(
 			err = EFI_SUCCESS;
 		}
 	}
+    if (err == EFI_INVALID_PARAMETER) {
+        Print(L"Custom kernel command line rejected\n");
+    }
 
 out:
 	if (errmsg != NULL) {
