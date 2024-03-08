@@ -22,8 +22,12 @@ jobs:
           sudo apt-get update --quiet
           sudo apt-get install --quiet --assume-yes --no-install-recommends gnu-efi build-essential
           sudo apt-get install --quiet --assume-yes --no-install-recommends \
-              dosfstools mtools ovmf python3-minimal python3-prettytable \
+              coreutils dosfstools git mtools python3-minimal python3-prettytable \
               qemu-system-x86 qemu-utils shim-signed swtpm
+          # use a specific version of OVMF which does not have uefi-shell
+          # disabled.  See: https://bugs.launchpad.net/ubuntu/+source/edk2/+bug/2040137
+          sudo apt-get install --quiet --assume-yes --no-install-recommends \
+              ovmf=0~20191122.bd85bf54-2ubuntu3
       - name: Collect Inputs
         run: |
           mkdir ./test-inputs/
@@ -48,9 +52,11 @@ jobs:
       - name: Boot Test
         run: |
           fails=""
+          set -x
           for m in nvram efi-shell; do
             echo "== $m =="
-            KVM=false ./test/harness run "--boot-mode=$m" \
+            KVM=false ./test/harness \
+              run "--boot-mode=$m" \
               --inputs=./test-inputs "--results=./test-results/$m" \
               --sbat=sbat.csv --stubby=stubby.efi \
               --num-threads=$(grep -c processor /proc/cpuinfo) \

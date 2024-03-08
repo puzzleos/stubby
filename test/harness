@@ -655,6 +655,7 @@ class Runner:
             self.workdir = os.path.abspath(workdir)
             ensure_dir(self.workdir)
 
+        self.verbose = cliargs.verbose
         self.timeout = cliargs.timeout
         self.testinfo = load_test_data(cliargs.testdata)
         errors = _check_run_args(cliargs)
@@ -772,6 +773,11 @@ class Runner:
             rlogfp.close()
             res = result.split(":")[0]
             print("Finished %s [%.2fs]: %s" % (name, time.time() - start, res))
+            if self.verbose > 0:
+                print("\n --- TEST [%s] serial.log ---\n" % name)
+                with open(serial_log) as fh:
+                    print("%s\n" % "".join(fh.readlines()))
+                print(" --- TEST [%s] end log ---\n" % name)
 
     def _run(self, testdata, run_d, results_d, qemu_log, serial_log, log):
         esp = path_join(run_d, "esp.raw")
