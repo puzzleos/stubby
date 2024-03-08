@@ -59,8 +59,13 @@ LINUX_TEST_CFLAGS := -DLINUX_TEST $(filter-out -fshort-wchar,$(CFLAGS))
 test-%: test-%-lt.o $(TEST_OBJS)
 	$(CC) $(LINUX_TEST_CFLAGS) -o $@ $^
 
+.PHONY: show-version
+show-version:
+	@echo $(VERSION)
+
 .PHONY: clean
 tarball:
+	@[ -s git-version ] || echo $(VERSION)
 	./tools/make-tarball
 
 .PHONY: clean

@@ -51,7 +51,7 @@ fi
 version=${version#v}
 archive_base="stubby-$version"
 if [ -z "$output" ]; then
-    output="$archive_base.tar.gz"
+    output="$archive_base.tar"
 fi
 
 # when building an archiving from HEAD, ensure that there aren't any
@@ -66,6 +66,15 @@ if [ "$rev" = HEAD ] && ! git diff-index --quiet HEAD --; then
     fi
 fi
 
-git archive --format=tgz "--output=$output" "--prefix=$archive_base/" "$rev" ||
+# generate tar format to enable version insertion
+git archive --format=tar "--output=$output" "--prefix=$archive_base/" "$rev" ||
     fail "git archive failed"
-echo "$output"
+
+# insert the git-version value
+echo "$version" > git-version
+tar --append -f ${output} --transform "s,^,$archive_base/," git-version ||
+    fail "appending git-version to archive failed"
+gzip ${output} ||
+    fail "failed to compress archive"
+
+echo "${output}.gz"
