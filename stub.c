@@ -36,7 +36,7 @@
 
 /* magic string to find in the binary image */
 static const char __attribute__((used)) magic[] =
-	"#### LoaderInfo: stubby " GIT_VERSION " ####";
+	"#### LoaderInfo: stubby " VERSION " ####";
 
 BOOLEAN use_shell_cmdline(UINTN len)
 {
@@ -199,7 +199,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	/* add StubInfo */
 	if (efivar_get_raw(&loader_guid,
 			   L"StubInfo", NULL, NULL) != EFI_SUCCESS)
-		efivar_set(L"StubInfo", L"stubby " GIT_VERSION, FALSE);
+		efivar_set(L"StubInfo", L"stubby " VERSION, FALSE);
 
 	err = linux_exec(image, cmdline, cmdline_len,
 			 (UINTN)loaded_image->ImageBase + addrs[1],

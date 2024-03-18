@@ -33,13 +33,19 @@ set --
 [ -d "$outd" ] || mkdir "$outd" ||
     fail "failed to make output dir"
 
+ovmf_version=""
+# https://bugs.launchpad.net/ubuntu/+source/edk2/+bug/2040137
+if [ "$(lsb_release -sc)" = "focal" ]; then
+    ovmf_version="=0~20191122.bd85bf54-2ubuntu3"
+fi
+
 if [ "$install" = "true" ]; then
     [ "$(id -u)" = "0" ] ||
         fail "must be root for install (try sudo or --no-install)"
     apt-get update --quiet || fail "apt-get update failed."
     apt-get install --quiet \
         --assume-yes --no-install-recommends \
-        ovmf shim-signed ||
+        ovmf${ovmfversion} shim-signed ||
         fail "failed install deps"
 else
     echo "skipping install"
@@ -101,6 +107,7 @@ for line in "$@"; do
         *)
             cp "$src" "$outd/$target" || fail "failed copy $src -> $target"
             echo "copied $src to $target"
+            md5sum $src $outd/$target
         ;;
     esac
 done
