@@ -1,7 +1,7 @@
 #!/bin/sh
 fails=""
 for m in nvram efi-shell; do
-  echo "== $m =="
+  echo "== starting boot tests mode=$m =="
   KVM=false ./test/harness \
     run "--boot-mode=$m" \
     --inputs=./test-inputs "--results=./test-results/$m" \
