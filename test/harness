@@ -92,6 +92,13 @@ def denied_boot(_name, _tdata, result):
     raise TestError("boot was not denied")
 
 
+def access_denied(_name, _tdata, result):
+    """Validate that shell refused to boot shim"""
+    if result.is_denied() is True:
+        return
+    rase TestError("shim access was not denied")
+
+
 def load_test_data(testfile):
     testdata = yaml.safe_load(read_file(testfile))
 
@@ -151,6 +158,7 @@ CHECKS = {
     "booted-expected-cli": booted_expected_cli,
     "warned-cmdline": warned_cmdline,
     "denied-boot": denied_boot,
+    "access-denied": access_denied,
 }
 
 
@@ -892,6 +900,7 @@ class TestResult:
     re_cmdline = re.compile(r"KERNEL COMMAND LINE: (?P<value>[^\n]*)\n")
     re_rejected = re.compile(r"Custom kernel command line rejected\n")
     re_warned = re.compile(r"Custom kernel would be rejected in secure mode\n")
+    re_denied = re.compile(r"failed to load.*: Access Denied\n")
 
     def __init__(self, rdir):
         self.rdir = rdir
@@ -918,6 +927,10 @@ class TestResult:
     @functools.lru_cache
     def is_warned(self):
         return self.re_warned.search(self.serial) is not None
+
+    @functools.lru_cache
+    def is_denied(self):
+        return self.re_denied.search(self.serial) is not None
 
 
 class TestError(Exception):
