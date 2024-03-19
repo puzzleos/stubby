@@ -1,8 +1,9 @@
-#!/bin/sh
+#!/bin/sh -x
 fails=""
 for m in nvram efi-shell; do
   echo "== starting boot tests mode=$m =="
   KVM=false ./test/harness \
+    --verbose --verbose \
     run "--boot-mode=$m" \
     --inputs=./test-inputs "--results=./test-results/$m" \
     --sbat=sbat.csv --stubby=stubby.efi \

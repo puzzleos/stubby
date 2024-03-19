@@ -74,6 +74,6 @@ clean:
 
 .PHONY: github-workflow
 github-workflow:
-	run-parts tools/workflow.d
+	run-parts --verbose tools/workflow.d
 
 # kate: syntax Makefile;
