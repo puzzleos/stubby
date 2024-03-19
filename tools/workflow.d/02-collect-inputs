@@ -1,0 +1,4 @@
+#!/bin/sh
+mkdir ./test-inputs/
+./test/collect-firmwares --no-install ./test-inputs
+./test/get-krd ./test-inputs

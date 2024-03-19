@@ -72,4 +72,8 @@ tarball:
 clean:
 	${RM} -rf *.efi *.so *.o $(TEST_EXES)
 
+.PHONY: github-workflow
+github-workflow:
+	run-parts --test tools/workflow.d
+
 # kate: syntax Makefile;

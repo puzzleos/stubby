@@ -1,0 +1,16 @@
+#!/bin/sh
+fails=""
+for m in nvram efi-shell; do
+  echo "== $m =="
+  KVM=false ./test/harness \
+    run "--boot-mode=$m" \
+    --inputs=./test-inputs "--results=./test-results/$m" \
+    --sbat=sbat.csv --stubby=stubby.efi \
+    --num-threads=$(grep -c processor /proc/cpuinfo) \
+    --timeout=120 \
+    test/tests.yaml || fails="$fails $m"
+done
+
+tar -cf test-data.tar stubby.efi sbat.csv test-inputs/ test-results/
+[ -z "$fails" ] || { echo "FAIL: ${fails# }"; exit 1; }
+exit 0
