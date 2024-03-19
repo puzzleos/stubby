@@ -96,7 +96,7 @@ def access_denied(_name, _tdata, result):
     """Validate that shell refused to boot shim"""
     if result.is_denied() is True:
         return
-    rase TestError("shim access was not denied")
+    raise TestError("shim access was not denied")
 
 
 def load_test_data(testfile):
