@@ -98,6 +98,13 @@ def access_denied(_name, _tdata, result):
         return
     raise TestError("shim access was not denied")
 
+def shell_violation(_name, _tdata, result):
+    """Validate that shell triggered security violation"""
+    if result.is_shell_error() is True:
+        return
+    raise TestError("uefi shell had no security violation")
+
+
 
 def load_test_data(testfile):
     testdata = yaml.safe_load(read_file(testfile))
@@ -159,6 +166,7 @@ CHECKS = {
     "warned-cmdline": warned_cmdline,
     "denied-boot": denied_boot,
     "access-denied": access_denied,
+    "security-violation": shell_violation,
 }
 
 
