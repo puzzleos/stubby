@@ -996,7 +996,8 @@ class Validator:
             if errs:
                 errors[name] = errs
 
-            row = [name, result, ",".join(errs.keys()), ",".join(errors.values())]
+            print(f"errors.values() = {errors.values()}")
+            row = [name, result, ",".join(errs.keys()), str(error.values())]
             if self.args.show_config_column:
                 row.append(tdata)
             self._table.add_row(row)
