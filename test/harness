@@ -60,8 +60,6 @@ def booted_runtime_cli(_name, tdata, result):
     """Validate that linux's /proc/cmdline should be identical to tdata[runtime]"""
     kcmdline = result.kernel_cmdline()
     if kcmdline != tdata["runtime"]:
-        if result.is_denied() is True:
-            raise TestError("kernel command line differed from runtime: shim access denied")
         raise TestError("\n".join([
             "kernel command line differed from runtime",
             " expected: '" + tdata["runtime"] + "'",
@@ -73,8 +71,6 @@ def booted_expected_cli(_name, tdata, result):
     """Validate that linux's /proc/cmdline should be identical to tdata[expected]"""
     kcmdline = result.kernel_cmdline()
     if kcmdline != tdata["expected"]:
-        if result.is_denied() is True:
-            raise TestError("kernel command line differed from expected: shim access denied")
         raise TestError("\n".join([
             "kernel command line differed from expected",
             " expected: '" + tdata["expected"] + "'",
@@ -86,8 +82,6 @@ def warned_cmdline(_name, _tdata, result):
     """Validate that stubby wrote a warning before loading kernel."""
     if result.is_warned() is True:
         return
-    if result.is_denied() is True:
-        raise TestError("boot did not warn: shim access denied")
     raise TestError("boot did not warn")
 
 
@@ -95,8 +89,6 @@ def denied_boot(_name, _tdata, result):
     """Validate that stubby refused to boot"""
     if result.is_rejected() is True:
         return
-    if result.is_denied() is True:
-        raise TestError("boot was not denied: shim access denied")
     raise TestError("boot was not denied")
 
 
