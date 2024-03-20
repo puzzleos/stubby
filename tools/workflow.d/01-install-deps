@@ -1,0 +1,27 @@
+#!/bin/bash
+rel=$(lsb_release -sc)
+ovmf_version=""
+case $rel in
+    focal)
+        if ! apt-cache policy | grep -q "puzzleos/dev"; then
+            # swtpm is not present in ubuntu in focal.
+            sudo add-apt-repository -y ppa:puzzleos/dev
+        fi
+        # use a specific version of OVMF which does not have uefi-shell
+        # disabled.  See: https://bugs.launchpad.net/ubuntu/+source/edk2/+bug/2040137
+        ovmf_version="=0~20191122.bd85bf54-2ubuntu3"
+        ;;
+    jammy)
+        ovmf_version="=2022.02-3"
+        ;;
+    *)
+        echo "Unknown release $rel"
+        ;;
+esac
+
+sudo apt-get update --quiet
+sudo apt-get install --quiet --assume-yes --no-install-recommends \
+    gnu-efi build-essential
+sudo apt-get install --quiet --assume-yes --no-install-recommends \
+    coreutils dosfstools git mtools ovmf${ovmf_version} python3-minimal \
+    python3-prettytable qemu-system-x86 qemu-utils shim-signed swtpm

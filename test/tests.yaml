@@ -10,6 +10,8 @@
 #     - booted-expected-cli: the kernel booted and had the provided 'expected'.
 #     - denied-boot: stubby refused to boot kernel.
 #     - warned-cmdline: stubby warned that secureboot would not allow.
+#     - access-denied: uefi shell refuses to run shim.efi
+#     - security-violation: internal uefi shell is disabled under secureboot
 #
 # notes:
 #   sb-shim -> secureboot=true  shim=yes
