@@ -909,6 +909,7 @@ class TestResult:
     re_rejected = re.compile(r"Custom kernel command line rejected\n")
     re_warned = re.compile(r"Custom kernel would be rejected in secure mode\n")
     re_denied = re.compile(r": Access Denied")
+    re_shell_error = re.compile(r"EFI Internal Shell.*: Security Violation\n")
 
     def __init__(self, rdir):
         self.rdir = rdir
@@ -939,6 +940,11 @@ class TestResult:
     @functools.lru_cache
     def is_denied(self):
         return self.re_denied.search(self.serial) is not None
+
+    @functools.lru_cache
+    def is_shell_error(self):
+        return self.re_shell_error.search(self.serial) is not None
+
 
 
 class TestError(Exception):
@@ -977,6 +983,12 @@ class Validator:
                 etype = "NORESULT"
             errors["execution"] = etype
 
+        if result.is_denied():
+            errors["shim-access"] = TestError("shim access denied")
+
+        if result.is_shell_error():
+            errors["uefi-shell"] = TestError("uefi-shell security violation")
+
         for ast in tdata["assert"]:
             try:
                 self._check(ast, tdata, result)
@@ -999,8 +1011,19 @@ class Validator:
             if errs:
                 errors[name] = errs
 
-            test_error_str = _get_test_error_arg(list(errs.values())[0])
-            row = [name, result, ",".join(errs.keys()), test_error_str]
+            # extract each error Exception string, combine into a list
+            err_vals = []
+            for _, err in errors.items():
+                for err_name, test_err in err.items():
+                    ev = test_err
+                    if type(test_err) == Exception:
+                        ev = test_err.args[0]
+                    err_vals.append(ev)
+
+            # convert the errors and exceptions to strings for the table
+            errs_str = ",".join(list(map(str, errs.keys())))
+            exps_str = ",".join(map(str, err_vals))
+            row = [name, result, errs_str, exps_str]
             if self.args.show_config_column:
                 row.append(tdata)
             self._table.add_row(row)
