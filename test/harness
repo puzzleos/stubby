@@ -986,6 +986,9 @@ class Validator:
         return len(errors) == 0, errors
 
     def validate_all(self):
+        def _get_test_error_arg(err):
+            return err.args[0]
+
         errors = {}
         for name, tdata in self.tests().items():
             trdir = path_join(self.results_d, name)
@@ -996,7 +999,8 @@ class Validator:
             if errs:
                 errors[name] = errs
 
-            row = [name, result, ",".join(errs.keys()), list(errs.values())[0].args]
+            test_error_str = _get_test_error_arg(list(errs.values())[0])
+            row = [name, result, ",".join(errs.keys()), test_error_str]
             if self.args.show_config_column:
                 row.append(tdata)
             self._table.add_row(row)
