@@ -952,7 +952,7 @@ class Validator:
         self.testinfo = load_test_data(path_join(self.results_d, "tests.yaml"))
         self._tests = None
         self._table = prettytable.PrettyTable()
-        columns = ["Name", "Passed", "Errors"]
+        columns = ["Name", "Passed", "Errors", "Exceptions"]
         if self.args.show_config_column:
             columns.append("Config")
         self._table.field_names = columns
@@ -996,7 +996,7 @@ class Validator:
             if errs:
                 errors[name] = errs
 
-            row = [name, result, ",".join(errs.keys())]
+            row = [name, result, ",".join(errs.keys()), ",".join(errors.values())]
             if self.args.show_config_column:
                 row.append(tdata)
             self._table.add_row(row)
