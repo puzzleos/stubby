@@ -26,8 +26,12 @@ jobs:
               qemu-system-x86 qemu-utils shim-signed swtpm
           # use a specific version of OVMF which does not have uefi-shell
           # disabled.  See: https://bugs.launchpad.net/ubuntu/+source/edk2/+bug/2040137
-          sudo apt-get install --quiet --assume-yes --no-install-recommends \
-              ovmf=0~20191122.bd85bf54-2ubuntu3
+          # this version is from Jammy so it has 2M and 4M variants but does not
+          # restrict access to uefi-shell when secureboot is enabled
+          ovmf_url="https://launchpadlibrarian.net/588079729/ovmf_2022.02-1_all.deb"
+          ovmf_deb=$(basename $ovmf_url)
+          wget ${ovmf_url}
+          sudo dpkg --install ${ovmf_deb}
       - name: Collect Inputs
         run: |
           mkdir ./test-inputs/
