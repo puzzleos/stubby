@@ -33,11 +33,10 @@ set --
 [ -d "$outd" ] || mkdir "$outd" ||
     fail "failed to make output dir"
 
-ovmf_version=""
 # https://bugs.launchpad.net/ubuntu/+source/edk2/+bug/2040137
-if [ "$(lsb_release -sc)" = "focal" ]; then
-    ovmf_version="=0~20191122.bd85bf54-2ubuntu3"
-fi
+# use this common version for all:
+ovmf_url="https://launchpadlibrarian.net/588079729/ovmf_2022.02-1_all.deb"
+ovmf_deb=$(basename "$ovmf_url")
 
 if [ "$install" = "true" ]; then
     [ "$(id -u)" = "0" ] ||
@@ -45,8 +44,10 @@ if [ "$install" = "true" ]; then
     apt-get update --quiet || fail "apt-get update failed."
     apt-get install --quiet \
         --assume-yes --no-install-recommends \
-        ovmf${ovmfversion} shim-signed ||
+        shim-signed ||
         fail "failed install deps"
+    wget "${ovmf_url}" -O "${ovmf_deb}" || fail "failed to download $ovmf_url"
+    dpkg --install "${ovmf_deb}" || fail "failed to install ${ovmf_deb}"
 else
     echo "skipping install"
 fi
@@ -61,7 +62,7 @@ set -- "$@" \
 
 bd=/usr/share/OVMF
 case "$REL" in
-    jammy)
+    focal|jammy|noble)
         set -- "$@" \
             "$bd/OVMF_VARS_4M.fd" \
             "$bd/OVMF_CODE_4M.secboot.fd" \
@@ -70,16 +71,6 @@ case "$REL" in
             "ovmf-insecure-vars.fd|link:OVMF_VARS_4M.fd" \
             "ovmf-secure-code.fd|link:OVMF_CODE_4M.secboot.fd" \
             "ovmf-secure-vars.fd|link:OVMF_VARS_4M.snakeoil.fd"
-        ;;
-    focal)
-        set -- "$@" \
-            "$bd/OVMF_VARS.fd" \
-            "$bd/OVMF_CODE.secboot.fd" \
-            "$bd/OVMF_VARS.snakeoil.fd" \
-            "ovmf-insecure-code.fd|link:OVMF_CODE.secboot.fd" \
-            "ovmf-insecure-vars.fd|link:OVMF_VARS.fd" \
-            "ovmf-secure-code.fd|link:OVMF_CODE.secboot.fd" \
-            "ovmf-secure-vars.fd|link:OVMF_VARS.snakeoil.fd"
         ;;
     *) fail "unknown release $REL";;
 esac
@@ -107,7 +98,7 @@ for line in "$@"; do
         *)
             cp "$src" "$outd/$target" || fail "failed copy $src -> $target"
             echo "copied $src to $target"
-            md5sum $src $outd/$target
+            md5sum $src "$outd/$target"
         ;;
     esac
 done
