@@ -29,6 +29,7 @@
 #define __STUBBY_LINUX_H
 
 #define SETUP_MAGIC             0x53726448      /* "HdrS" */
+#define XLF_EFI_HANDOVER_64     (1U << 3)
 
 struct setup_header {
 	UINT8  setup_sects;
@@ -69,6 +70,7 @@ struct setup_header {
 	UINT64 pref_address;
 	UINT32 init_size;
 	UINT32 handover_offset;
+	UINT32 kernel_info_offset;
 } __attribute__((packed));
 
 /* adapted from linux' bootparam.h */
@@ -108,9 +110,9 @@ struct boot_params {
 	UINT8  _pad9[276];
 } __attribute__((packed));
 
-EFI_STATUS linux_exec(EFI_HANDLE *image,
+EFI_STATUS linux_exec(EFI_HANDLE image,
 		      CHAR8 *cmdline, UINTN cmdline_size,
-		      UINTN linux_addr,
+		      UINTN linux_addr, UINTN linux_size,
 		      UINTN initrd_addr, UINTN initrd_size);
 
 #endif
