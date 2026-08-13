@@ -97,12 +97,17 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 		return err;
 	}
+	DPRINT(L"stubby: loaded image: base 0x%lx, size %lu, load options %lu bytes\n",
+	      (UINTN)loaded_image->ImageBase, (UINTN)loaded_image->ImageSize,
+	      (UINTN)loaded_image->LoadOptionsSize);
 
 	if (efivar_get_raw(&global_guid,
 			   L"SecureBoot", &b, &size) == EFI_SUCCESS)
 		if (*b > 0)
 			secure = TRUE;
+	DPRINT(L"stubby: Secure Boot is %s\n", secure ? L"enabled" : L"disabled");
 
+	DPRINT(L"stubby: locating embedded .cmdline, .linux, and .initrd sections\n");
 	err = pe_memory_locate_sections(loaded_image->ImageBase,
 					sections, addrs, offs, szs);
 	if (EFI_ERROR(err)) {
@@ -110,11 +115,29 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
 		return err;
 	}
+	DPRINT(L"stubby: .cmdline: RVA 0x%lx, file offset 0x%lx, size %lu\n",
+	      addrs[0], offs[0], szs[0]);
+	DPRINT(L"stubby: .linux:   RVA 0x%lx, file offset 0x%lx, size %lu\n",
+	      addrs[1], offs[1], szs[1]);
+	DPRINT(L"stubby: .initrd:  RVA 0x%lx, file offset 0x%lx, size %lu\n",
+	      addrs[2], offs[2], szs[2]);
+	if (szs[1] == 0) {
+		Print(L"stubby: embedded .linux section is missing or empty\n");
+		return EFI_LOAD_ERROR;
+	}
+	if (addrs[1] >= loaded_image->ImageSize ||
+	    szs[1] > loaded_image->ImageSize - addrs[1] ||
+	    (szs[2] > 0 && (addrs[2] >= loaded_image->ImageSize ||
+	                     szs[2] > loaded_image->ImageSize - addrs[2]))) {
+		Print(L"stubby: an embedded section lies outside the loaded EFI image\n");
+		return EFI_LOAD_ERROR;
+	}
 
 	if (szs[0] > 0)
 		cmdline = (CHAR8 *)(loaded_image->ImageBase + addrs[0]);
 
 	cmdline_len = szs[0];
+	DPRINT(L"stubby: using embedded command line (%lu bytes)\n", cmdline_len);
 
 	/* if we are not in secure boot mode, or none was provided, accept a
 	 * custom command line and replace the built-in one */
@@ -133,6 +156,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 		for (i = 0; i < cmdline_len; i++)
 			line[i] = options[i];
 		cmdline = line;
+		DPRINT(L"stubby: replacing embedded command line with %lu-byte load option\n",
+		      cmdline_len);
 
 		err = check_cmdline(cmdline, cmdline_len);
 		if (EFI_ERROR(err)) {
@@ -140,7 +165,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 				Print(L"Custom kernel command line rejected");
 				return err;
 			} else {
-				Print(L"Custom kernel would be rejected in secure mode");
+				DPRINT(L"Custom kernel would be rejected in secure mode");
 			}
 		}
 	}
@@ -189,8 +214,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 			   L"StubInfo", NULL, NULL) != EFI_SUCCESS)
 		efivar_set(L"StubInfo", L"stubby " GIT_VERSION, FALSE);
 
+	DPRINT(L"stubby: invoking Linux EFI handover (kernel 0x%lx, initrd 0x%lx)\n",
+	      (UINTN)loaded_image->ImageBase + addrs[1],
+	      (UINTN)loaded_image->ImageBase + addrs[2]);
 	err = linux_exec(image, cmdline, cmdline_len,
-			 (UINTN)loaded_image->ImageBase + addrs[1],
+			 (UINTN)loaded_image->ImageBase + addrs[1], szs[1],
 			 (UINTN)loaded_image->ImageBase + addrs[2], szs[2]);
 
 	Print(L"Execution of embedded linux image failed: %r\n", err);
