@@ -104,4 +104,12 @@ extern const EFI_GUID loader_guid;
 
 EFI_STATUS log_oom(void);
 
+extern BOOLEAN stubby_verbose;
+
+#define DPRINT(...) \
+	do { \
+		if (stubby_verbose) \
+			Print(__VA_ARGS__); \
+	} while (0)
+
 #endif

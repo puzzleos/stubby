@@ -53,6 +53,12 @@ BOOLEAN use_shell_cmdline(UINTN len)
 }
 
 static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
+static const EFI_GUID shim_verbose_guid = {
+	0x605dab50, 0xe046, 0x4300,
+	{ 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23 }
+};
+
+BOOLEAN stubby_verbose;
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 {
@@ -74,7 +80,13 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table)
 	CHAR16 uuid[37];
 	EFI_STATUS err;
 
+	uefi_call_wrapper(sys_table->ConOut->OutputString, 2,
+			  sys_table->ConOut, L"stubby: started\r\n");
 	InitializeLib(image, sys_table);
+
+	if (efivar_get_raw(&shim_verbose_guid, L"SHIM_VERBOSE", &b, &size) == EFI_SUCCESS &&
+	    size == 1 && b[0] == 1)
+		stubby_verbose = TRUE;
 
 	err = uefi_call_wrapper(BS->OpenProtocol, 6,
 				image, &LoadedImageProtocol,
