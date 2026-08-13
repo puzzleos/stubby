@@ -34,11 +34,12 @@ INITRD_VMA=${INITRD_VMA:-}
 LINUX_SETUP_MAGIC=1400005704 # 0x53726448, "HdrS"
 
 usage() {
-	echo "usage: stubby-smash.2.sh -o <output>"
+	echo "usage: stubby-smash.2.sh -o <output> [-e <stubby.efi>]"
 	echo "         -k <kernel> -i <initrd> -c <cmdline> -s <SBAT>"
 	echo ""
-	echo "  Combine the <kernel>, <initrd>, <cmdline> and <SBAT> files"
+	echo "  Combine the <stubby.efi>, <kernel>, <initrd>, <cmdline> and <SBAT> files"
 	echo "  into a single bootable EFI app in <output>."
+	echo "  Defaults to ./stubby.efi when -e is not specified."
 	echo ""
 	exit 1
 }
@@ -118,8 +119,11 @@ arg_initrd=""
 arg_cmdline=""
 arg_sbat=""
 arg_output=""
-while getopts ":o:k:i:c:s:" opt; do
+while getopts ":e:o:k:i:c:s:" opt; do
 	case $opt in
+	e)
+		STUBBY=$OPTARG
+		;;
 	o)
 		arg_output=$OPTARG
 		;;
